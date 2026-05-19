@@ -258,7 +258,7 @@ struct WalkyOnboardingView: View {
                     }
                     Text(option.detail)
                         .font(.walky(size: 11)).walkyTracking(11)
-                        .foregroundStyle(theme.secondary)
+                        .foregroundStyle(selected && installed ? theme.activeText.opacity(0.72) : theme.secondary)
                         .lineLimit(1)
                 }
 
