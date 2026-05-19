@@ -9,6 +9,7 @@ struct WalkyOnboardingView: View {
     @State private var screenGranted = CGPreflightScreenCaptureAccess()
     @State private var automationGranted = UserDefaults.standard.bool(forKey: Self.automationGrantedKey)
     @State private var automationDetail = "needed so auto-paste can use system events."
+    @State private var lastAutomationProbe = Date.distantPast
 
     private static let automationGrantedKey = "walkyTalky.automationPermissionChecked"
 
@@ -90,7 +91,7 @@ struct WalkyOnboardingView: View {
         .walkyDefaultTypography()
         .preferredColorScheme(appearanceMode == .light ? .light : .dark)
         .onAppear {
-            refresh()
+            refresh(probeAutomation: true)
             setup.refresh()
         }
         .onReceive(Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()) { _ in
@@ -98,7 +99,7 @@ struct WalkyOnboardingView: View {
             setup.refresh()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            refresh()
+            refresh(probeAutomation: true)
             setup.refresh()
         }
     }
@@ -360,6 +361,12 @@ struct WalkyOnboardingView: View {
     }
 
     private func requestAutomation() {
+        probeAutomationPermission(updateMissingDetail: true)
+    }
+
+    @discardableResult
+    private func probeAutomationPermission(updateMissingDetail: Bool) -> Bool {
+        lastAutomationProbe = Date()
         let source = """
         tell application "System Events"
             get name of first process
@@ -368,27 +375,38 @@ struct WalkyOnboardingView: View {
         var error: NSDictionary?
         guard let script = NSAppleScript(source: source) else {
             automationGranted = false
-            automationDetail = "could not prepare automation permission request."
-            return
+            if updateMissingDetail {
+                automationDetail = "could not prepare automation permission request."
+            }
+            return false
         }
 
         script.executeAndReturnError(&error)
         if let error {
             automationGranted = false
-            automationDetail = (error[NSAppleScript.errorMessage] as? String)?.lowercased()
-                ?? "allow walky talky to control system events."
-            return
+            UserDefaults.standard.set(false, forKey: Self.automationGrantedKey)
+            if updateMissingDetail {
+                automationDetail = (error[NSAppleScript.errorMessage] as? String)?.lowercased()
+                    ?? "allow walky talky to control system events."
+            } else {
+                automationDetail = "needed so auto-paste can use system events."
+            }
+            return false
         }
 
         automationGranted = true
         automationDetail = "granted for auto-paste through system events."
         UserDefaults.standard.set(true, forKey: Self.automationGrantedKey)
+        return true
     }
 
-    private func refresh() {
+    private func refresh(probeAutomation: Bool = false) {
         microphoneGranted = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
         _ = refreshAccessibility()
         screenGranted = CGPreflightScreenCaptureAccess()
+        if probeAutomation || (automationGranted == false && Date().timeIntervalSince(lastAutomationProbe) > 3) {
+            _ = probeAutomationPermission(updateMissingDetail: false)
+        }
     }
 
     @discardableResult
