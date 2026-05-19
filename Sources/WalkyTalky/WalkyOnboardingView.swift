@@ -80,7 +80,11 @@ struct WalkyOnboardingView: View {
             refresh()
             setup.refresh()
         }
-        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
+        .onReceive(Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()) { _ in
+            refresh()
+            setup.refresh()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             refresh()
             setup.refresh()
         }
@@ -123,6 +127,18 @@ struct WalkyOnboardingView: View {
                     .font(.walky(size: 13, weight: .medium)).walkyTracking(13)
                     .foregroundStyle(theme.secondary)
             }
+            Spacer()
+            Button {
+                NSApp.terminate(nil)
+            } label: {
+                Image(systemName: "power")
+                    .font(.walky(size: 16, weight: .semibold)).walkyTracking(16)
+                    .frame(width: 34, height: 34)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(theme.secondary)
+            .background(theme.control, in: Circle())
+            .help("quit walky talky")
         }
     }
 
@@ -314,6 +330,10 @@ struct WalkyOnboardingView: View {
     }
 
     private func requestAccessibility() {
+        if refreshAccessibility() {
+            return
+        }
+
         let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
         AXIsProcessTrustedWithOptions(options)
         NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
@@ -328,7 +348,14 @@ struct WalkyOnboardingView: View {
 
     private func refresh() {
         microphoneGranted = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
-        accessibilityGranted = AXIsProcessTrusted()
+        _ = refreshAccessibility()
         screenGranted = CGPreflightScreenCaptureAccess()
+    }
+
+    @discardableResult
+    private func refreshAccessibility() -> Bool {
+        let trusted = AXIsProcessTrusted()
+        accessibilityGranted = trusted
+        return trusted
     }
 }
