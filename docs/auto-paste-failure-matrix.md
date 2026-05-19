@@ -39,3 +39,4 @@ auto-paste is a core product path. do not reduce it to a single global `cmd+v`.
 - captured pid is stale and no bundle id is available: does not insert and reports unavailable.
 - direct accessibility insert works for normal cocoa text views.
 - command-v fallback is required for browser/electron/webview/native apps that do not accept direct ax value mutation reliably.
+- OpenWhispr uses a native macOS helper that posts physical `v` keycode `0x09` with `.maskCommand` through `.cgSessionEventTap`; Walky Talky mirrors that event path for keyboard fallback.

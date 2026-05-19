@@ -249,20 +249,17 @@ struct AutoPasteEngine {
     }
 
     private func postCommandVGlobally() {
-        guard let source = CGEventSource(stateID: .combinedSessionState),
-              let commandDown = CGEvent(keyboardEventSource: source, virtualKey: 0x37, keyDown: true),
-              let vDown = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: true),
-              let vUp = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false),
-              let commandUp = CGEvent(keyboardEventSource: source, virtualKey: 0x37, keyDown: false) else {
+        guard let keyDown = CGEvent(keyboardEventSource: nil, virtualKey: 0x09, keyDown: true),
+              let keyUp = CGEvent(keyboardEventSource: nil, virtualKey: 0x09, keyDown: false) else {
             return
         }
 
-        vDown.flags = .maskCommand
-        vUp.flags = .maskCommand
-        commandDown.post(tap: .cghidEventTap)
-        vDown.post(tap: .cghidEventTap)
-        vUp.post(tap: .cghidEventTap)
-        commandUp.post(tap: .cghidEventTap)
+        keyDown.flags = .maskCommand
+        keyUp.flags = .maskCommand
+        keyDown.post(tap: .cgSessionEventTap)
+        usleep(8_000)
+        keyUp.post(tap: .cgSessionEventTap)
+        usleep(20_000)
     }
 
     private func postCommandVWithSystemEvents(processIdentifier: pid_t) -> Bool {
