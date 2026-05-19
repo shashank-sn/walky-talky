@@ -21,25 +21,33 @@ struct WalkyPopoverView: View {
     var body: some View {
         ZStack {
             if page == .settings {
-                settingsView
+                pageSurface {
+                    settingsView
+                }
                     .transition(.asymmetric(
                         insertion: .move(edge: .trailing).combined(with: .opacity),
                         removal: .move(edge: .leading).combined(with: .opacity)
                     ))
             } else if page == .dictionary {
-                dictionaryView
+                pageSurface {
+                    dictionaryView
+                }
                     .transition(.asymmetric(
                         insertion: .move(edge: .trailing).combined(with: .opacity),
                         removal: .move(edge: .leading).combined(with: .opacity)
                     ))
             } else if page == .analytics {
-                analyticsView
+                pageSurface {
+                    analyticsView
+                }
                     .transition(.asymmetric(
                         insertion: .move(edge: .trailing).combined(with: .opacity),
                         removal: .move(edge: .leading).combined(with: .opacity)
                     ))
             } else {
-                mainView
+                pageSurface {
+                    mainView
+                }
                     .transition(.asymmetric(
                         insertion: .move(edge: .leading).combined(with: .opacity),
                         removal: .move(edge: .trailing).combined(with: .opacity)
@@ -58,12 +66,18 @@ struct WalkyPopoverView: View {
             }
         }
         .animation(.snappy(duration: 0.28, extraBounce: 0.02), value: page)
-        .padding(18)
-        .frame(width: 420, height: 548)
+        .frame(width: 420, height: 548, alignment: .topLeading)
         .background(theme.background)
+        .clipped()
         .foregroundStyle(theme.text)
         .walkyDefaultTypography()
         .preferredColorScheme(state.appearanceMode == .light ? .light : .dark)
+    }
+
+    private func pageSurface<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .padding(18)
+            .frame(width: 420, height: 548, alignment: .topLeading)
     }
 
     private var mainView: some View {
@@ -78,7 +92,9 @@ struct WalkyPopoverView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var settingsView: some View {

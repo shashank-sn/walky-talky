@@ -101,9 +101,10 @@ final class WalkyAppDelegate: NSObject, NSApplicationDelegate {
         showingOnboarding = false
         popover?.performClose(nil)
         stopOutsideClickMonitor()
+        popover = nil
         configurePopover(showingOnboarding: false)
         configureShortcut()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             self.showPopover()
         }
     }
