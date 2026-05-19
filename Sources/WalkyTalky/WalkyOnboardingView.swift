@@ -7,6 +7,10 @@ struct WalkyOnboardingView: View {
     @State private var microphoneGranted = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
     @State private var accessibilityGranted = AXIsProcessTrusted()
     @State private var screenGranted = CGPreflightScreenCaptureAccess()
+    @State private var automationGranted = UserDefaults.standard.bool(forKey: Self.automationGrantedKey)
+    @State private var automationDetail = "needed so auto-paste can use system events."
+
+    private static let automationGrantedKey = "walkyTalky.automationPermissionChecked"
 
     let appearanceMode: AppState.AppearanceMode
     let onGetStarted: () -> Void
@@ -16,7 +20,7 @@ struct WalkyOnboardingView: View {
     }
 
     private var permissionsReady: Bool {
-        microphoneGranted && accessibilityGranted && screenGranted
+        microphoneGranted && accessibilityGranted && screenGranted && automationGranted
     }
 
     private var isReady: Bool {
@@ -60,6 +64,15 @@ struct WalkyOnboardingView: View {
                             actionTitle: screenGranted ? "granted" : "grant"
                         ) {
                             requestScreenRecording()
+                        }
+
+                        permissionRow(
+                            title: "auto paste",
+                            subtitle: automationDetail,
+                            granted: automationGranted,
+                            actionTitle: automationGranted ? "granted" : "allow"
+                        ) {
+                            requestAutomation()
                         }
                     }
 
@@ -344,6 +357,32 @@ struct WalkyOnboardingView: View {
         _ = CGRequestScreenCaptureAccess()
         NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!)
         refresh()
+    }
+
+    private func requestAutomation() {
+        let source = """
+        tell application "System Events"
+            get name of first process
+        end tell
+        """
+        var error: NSDictionary?
+        guard let script = NSAppleScript(source: source) else {
+            automationGranted = false
+            automationDetail = "could not prepare automation permission request."
+            return
+        }
+
+        script.executeAndReturnError(&error)
+        if let error {
+            automationGranted = false
+            automationDetail = (error[NSAppleScript.errorMessage] as? String)?.lowercased()
+                ?? "allow walky talky to control system events."
+            return
+        }
+
+        automationGranted = true
+        automationDetail = "granted for auto-paste through system events."
+        UserDefaults.standard.set(true, forKey: Self.automationGrantedKey)
     }
 
     private func refresh() {

@@ -11,7 +11,7 @@ final class WalkyAppDelegate: NSObject, NSApplicationDelegate {
     private var showingOnboarding = false
     private static let onboardingCompleteKey = "walkyTalky.onboardingComplete"
     private static let onboardingVersionKey = "walkyTalky.onboardingVersion"
-    private static let requiredOnboardingVersion = 2
+    private static let requiredOnboardingVersion = 3
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         state.shortcutPresetDidChange = { [weak self] in
@@ -99,9 +99,13 @@ final class WalkyAppDelegate: NSObject, NSApplicationDelegate {
         UserDefaults.standard.set(true, forKey: Self.onboardingCompleteKey)
         UserDefaults.standard.set(Self.requiredOnboardingVersion, forKey: Self.onboardingVersionKey)
         showingOnboarding = false
+        popover?.performClose(nil)
+        stopOutsideClickMonitor()
         configurePopover(showingOnboarding: false)
         configureShortcut()
-        showPopover()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            self.showPopover()
+        }
     }
 
     private static var hasCompletedCurrentOnboarding: Bool {
