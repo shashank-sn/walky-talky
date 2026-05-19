@@ -4,9 +4,6 @@ import ApplicationServices
 struct AutoPasteOutcome: Equatable {
     enum Method: String {
         case accessibilityInsert = "accessibility insert"
-        case systemEventsProcess = "system events"
-        case pidKeyboardEvent = "pid keyboard event"
-        case globalKeyboardEvent = "global keyboard event"
         case unavailable = "unavailable"
     }
 
@@ -56,44 +53,12 @@ struct AutoPasteEngine {
                     detail: "pasted directly into focused text field."
                 )
             }
-
-            if pasteWithSystemEvents(to: target.processIdentifier) {
-                return AutoPasteOutcome(
-                    pasted: true,
-                    method: .systemEventsProcess,
-                    detail: "pasted through focused target process."
-                )
-            }
-
-            if postKeyboardPaste(to: target.processIdentifier) {
-                return AutoPasteOutcome(
-                    pasted: true,
-                    method: .pidKeyboardEvent,
-                    detail: "pasted through target keyboard event."
-                )
-            }
-        }
-
-        if pasteWithSystemEvents(to: nil) {
-            return AutoPasteOutcome(
-                pasted: true,
-                method: .systemEventsProcess,
-                detail: "pasted through frontmost process."
-            )
-        }
-
-        if postKeyboardPaste(to: nil) {
-            return AutoPasteOutcome(
-                pasted: true,
-                method: .globalKeyboardEvent,
-                detail: "pasted through global keyboard event."
-            )
         }
 
         return AutoPasteOutcome(
             pasted: false,
             method: .unavailable,
-            detail: "copied, but every paste method failed."
+            detail: "copied, but the original target app was not available or did not accept direct paste."
         )
     }
 
@@ -111,14 +76,7 @@ struct AutoPasteEngine {
             return app
         }
 
-        if let frontmost = NSWorkspace.shared.frontmostApplication,
-           frontmost.bundleIdentifier != ownBundleID {
-            return frontmost
-        }
-
-        return NSWorkspace.shared.runningApplications.first { app in
-            app.activationPolicy == .regular && app.bundleIdentifier != ownBundleID && !app.isTerminated
-        }
+        return nil
     }
 
     private func insertWithAccessibility(_ text: String, into processIdentifier: pid_t) -> Bool {
@@ -180,63 +138,6 @@ struct AutoPasteEngine {
         var nextRange = CFRange(location: nextCursor, length: 0)
         if let nextRangeValue = AXValueCreate(.cfRange, &nextRange) {
             _ = AXUIElementSetAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, nextRangeValue)
-        }
-
-        return true
-    }
-
-    private func pasteWithSystemEvents(to processIdentifier: pid_t?) -> Bool {
-        let source: String
-        if let processIdentifier {
-            source = """
-            tell application "System Events"
-                set targetProcess to first application process whose unix id is \(processIdentifier)
-                set frontmost of targetProcess to true
-                delay 0.08
-                keystroke "v" using command down
-            end tell
-            """
-        } else {
-            source = """
-            tell application "System Events"
-                keystroke "v" using command down
-            end tell
-            """
-        }
-
-        var error: NSDictionary?
-        guard let script = NSAppleScript(source: source) else { return false }
-        script.executeAndReturnError(&error)
-        return error == nil
-    }
-
-    private func postKeyboardPaste(to processIdentifier: pid_t?) -> Bool {
-        guard let source = CGEventSource(stateID: .combinedSessionState) else {
-            return false
-        }
-
-        let commandKey: CGKeyCode = 0x37
-        let vKey: CGKeyCode = 0x09
-        let events: [CGEvent?] = [
-            CGEvent(keyboardEventSource: source, virtualKey: commandKey, keyDown: true),
-            CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: true),
-            CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: false),
-            CGEvent(keyboardEventSource: source, virtualKey: commandKey, keyDown: false)
-        ]
-
-        guard events.allSatisfy({ $0 != nil }) else {
-            return false
-        }
-
-        events[1]?.flags = .maskCommand
-        events[2]?.flags = .maskCommand
-
-        for event in events.compactMap({ $0 }) {
-            if let processIdentifier {
-                event.postToPid(processIdentifier)
-            } else {
-                event.post(tap: .cghidEventTap)
-            }
         }
 
         return true
