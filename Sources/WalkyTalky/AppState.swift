@@ -1190,24 +1190,49 @@ final class AppState: ObservableObject {
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
             if let targetPID, let targetApp = NSRunningApplication(processIdentifier: targetPID) {
-                let activated = targetApp.activate()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-                    if activated {
-                        self.postPasteGlobally()
-                    } else {
-                        self.postPaste(to: targetPID)
-                    }
-                }
+                self.activateAndPaste(targetApp: targetApp, fallbackPID: targetPID)
             } else {
                 if let targetBundleID,
                    let targetApp = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == targetBundleID }) {
-                    targetApp.activate()
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.postPasteGlobally()
+                    self.activateAndPaste(targetApp: targetApp, fallbackPID: nil)
+                } else {
+                    self.postPasteWithSystemEvents()
                 }
             }
         }
+    }
+
+    private func activateAndPaste(targetApp: NSRunningApplication, fallbackPID: pid_t?) {
+        let activated = targetApp.activate()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
+            if self.postPasteWithSystemEvents() {
+                return
+            }
+            if activated {
+                self.postPasteGlobally()
+            } else if let fallbackPID {
+                self.postPaste(to: fallbackPID)
+            } else {
+                self.postPasteGlobally()
+            }
+        }
+    }
+
+    @discardableResult
+    private func postPasteWithSystemEvents() -> Bool {
+        let source = """
+        tell application "System Events"
+            keystroke "v" using command down
+        end tell
+        """
+        var error: NSDictionary?
+        guard let script = NSAppleScript(source: source) else { return false }
+        script.executeAndReturnError(&error)
+        if error != nil {
+            statusDetail = "copied. auto-paste needs automation/accessibility permission."
+            return false
+        }
+        return true
     }
 
     private func postPaste(to processIdentifier: pid_t) {

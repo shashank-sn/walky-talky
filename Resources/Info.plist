@@ -24,9 +24,11 @@
   <string>14.0</string>
   <key>LSUIElement</key>
   <true/>
-  <key>NSMicrophoneUsageDescription</key>
-  <string>walky talky records your microphone locally so it can transcribe dictation on this mac.</string>
-  <key>NSScreenCaptureUsageDescription</key>
-  <string>walky talky can capture system audio locally for meeting transcription when you choose system audio meeting mode.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>walky talky records your microphone locally so it can transcribe dictation on this mac.</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>walky talky uses system events to paste your local transcript back into the app you were using.</string>
+	<key>NSScreenCaptureUsageDescription</key>
+	<string>walky talky can capture system audio locally for meeting transcription when you choose system audio meeting mode.</string>
 </dict>
 </plist>

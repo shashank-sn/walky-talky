@@ -10,13 +10,15 @@ final class WalkyAppDelegate: NSObject, NSApplicationDelegate {
     private var onboardingWindow: NSWindow?
     private var outsideClickMonitor: Any?
     private static let onboardingCompleteKey = "walkyTalky.onboardingComplete"
+    private static let onboardingVersionKey = "walkyTalky.onboardingVersion"
+    private static let requiredOnboardingVersion = 2
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         state.shortcutPresetDidChange = { [weak self] in
             self?.configureShortcut()
         }
 
-        if UserDefaults.standard.bool(forKey: Self.onboardingCompleteKey) {
+        if Self.hasCompletedCurrentOnboarding {
             startMenuBarMode()
         } else {
             showOnboarding()
@@ -107,9 +109,15 @@ final class WalkyAppDelegate: NSObject, NSApplicationDelegate {
 
     private func finishOnboarding() {
         UserDefaults.standard.set(true, forKey: Self.onboardingCompleteKey)
+        UserDefaults.standard.set(Self.requiredOnboardingVersion, forKey: Self.onboardingVersionKey)
         onboardingWindow?.close()
         onboardingWindow = nil
         startMenuBarMode()
+    }
+
+    private static var hasCompletedCurrentOnboarding: Bool {
+        UserDefaults.standard.bool(forKey: onboardingCompleteKey)
+            && UserDefaults.standard.integer(forKey: onboardingVersionKey) >= requiredOnboardingVersion
     }
 
     @objc private func togglePopover() {
