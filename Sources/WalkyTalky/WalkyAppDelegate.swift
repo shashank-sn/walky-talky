@@ -7,8 +7,8 @@ final class WalkyAppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
     private var shortcutController: ShortcutController?
-    private var onboardingWindow: NSWindow?
     private var outsideClickMonitor: Any?
+    private var showingOnboarding = false
     private static let onboardingCompleteKey = "walkyTalky.onboardingComplete"
     private static let onboardingVersionKey = "walkyTalky.onboardingVersion"
     private static let requiredOnboardingVersion = 2
@@ -18,18 +18,20 @@ final class WalkyAppDelegate: NSObject, NSApplicationDelegate {
             self?.configureShortcut()
         }
 
-        if Self.hasCompletedCurrentOnboarding {
-            startMenuBarMode()
-        } else {
-            showOnboarding()
+        startMenuBarMode(showingOnboarding: !Self.hasCompletedCurrentOnboarding)
+        if showingOnboarding {
+            showPopover()
         }
     }
 
-    private func startMenuBarMode() {
+    private func startMenuBarMode(showingOnboarding: Bool = false) {
+        self.showingOnboarding = showingOnboarding
         NSApp.setActivationPolicy(.accessory)
         configureStatusItem()
-        configurePopover()
-        configureShortcut()
+        configurePopover(showingOnboarding: showingOnboarding)
+        if !showingOnboarding {
+            configureShortcut()
+        }
     }
 
     private func configureStatusItem() {
@@ -44,13 +46,20 @@ final class WalkyAppDelegate: NSObject, NSApplicationDelegate {
         statusItem = item
     }
 
-    private func configurePopover() {
-        if popover != nil { return }
-        let popover = NSPopover()
+    private func configurePopover(showingOnboarding: Bool) {
+        let popover = self.popover ?? NSPopover()
         popover.behavior = .transient
         popover.animates = true
         popover.contentSize = NSSize(width: 420, height: 548)
-        popover.contentViewController = NSHostingController(rootView: WalkyPopoverView(state: state))
+        if showingOnboarding {
+            popover.contentViewController = NSHostingController(
+                rootView: WalkyOnboardingView(appearanceMode: state.appearanceMode) { [weak self] in
+                    self?.finishOnboarding()
+                }
+            )
+        } else {
+            popover.contentViewController = NSHostingController(rootView: WalkyPopoverView(state: state))
+        }
         self.popover = popover
     }
 
@@ -86,33 +95,13 @@ final class WalkyAppDelegate: NSObject, NSApplicationDelegate {
         shortcutController = controller
     }
 
-    private func showOnboarding() {
-        NSApp.setActivationPolicy(.regular)
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 540, height: 660),
-            styleMask: [.titled, .closable],
-            backing: .buffered,
-            defer: false
-        )
-        window.title = "walky talky setup"
-        window.isReleasedWhenClosed = false
-        window.contentViewController = NSHostingController(
-            rootView: WalkyOnboardingView { [weak self] in
-                self?.finishOnboarding()
-            }
-        )
-        window.center()
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-        onboardingWindow = window
-    }
-
     private func finishOnboarding() {
         UserDefaults.standard.set(true, forKey: Self.onboardingCompleteKey)
         UserDefaults.standard.set(Self.requiredOnboardingVersion, forKey: Self.onboardingVersionKey)
-        onboardingWindow?.close()
-        onboardingWindow = nil
-        startMenuBarMode()
+        showingOnboarding = false
+        configurePopover(showingOnboarding: false)
+        configureShortcut()
+        showPopover()
     }
 
     private static var hasCompletedCurrentOnboarding: Bool {
@@ -121,16 +110,23 @@ final class WalkyAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func togglePopover() {
-        guard let popover, let button = statusItem?.button else { return }
+        guard let popover, statusItem?.button != nil else { return }
 
         if popover.isShown {
             popover.performClose(nil)
             stopOutsideClickMonitor()
         } else {
-            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-            startOutsideClickMonitor()
-            NSApp.activate(ignoringOtherApps: true)
+            showPopover()
         }
+    }
+
+    private func showPopover() {
+        guard let popover, let button = statusItem?.button else { return }
+        if !popover.isShown {
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        }
+        startOutsideClickMonitor()
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     private func startOutsideClickMonitor() {

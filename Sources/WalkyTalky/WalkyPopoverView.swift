@@ -716,7 +716,7 @@ struct WalkyPopoverView: View {
     }
 }
 
-private struct PopoverTheme {
+struct PopoverTheme {
     let background: Color
     let text: Color
     let secondary: Color

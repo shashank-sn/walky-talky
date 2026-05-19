@@ -8,7 +8,12 @@ struct WalkyOnboardingView: View {
     @State private var accessibilityGranted = AXIsProcessTrusted()
     @State private var screenGranted = CGPreflightScreenCaptureAccess()
 
+    let appearanceMode: AppState.AppearanceMode
     let onGetStarted: () -> Void
+
+    private var theme: PopoverTheme {
+        appearanceMode == .light ? .light : .dark
+    }
 
     private var permissionsReady: Bool {
         microphoneGranted && accessibilityGranted && screenGranted
@@ -19,64 +24,58 @@ struct WalkyOnboardingView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            header
+        VStack(alignment: .leading, spacing: 0) {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 16) {
+                    header
 
-            Text("set up permissions once, then keep whisper and models outside the app so walky talky stays small.")
-                .font(.walky(size: 15)).walkyTracking(15)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+                    Text("set up permissions once, then keep whisper and models outside the app so walky talky stays small.")
+                        .font(.walky(size: 15)).walkyTracking(15)
+                        .foregroundStyle(theme.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
 
-            VStack(spacing: 10) {
-                permissionRow(
-                    title: "microphone",
-                    subtitle: "needed for dictation and microphone meetings.",
-                    granted: microphoneGranted,
-                    actionTitle: microphoneGranted ? "granted" : "grant"
-                ) {
-                    requestMicrophone()
+                    VStack(spacing: 10) {
+                        permissionRow(
+                            title: "microphone",
+                            subtitle: "needed for dictation and microphone meetings.",
+                            granted: microphoneGranted,
+                            actionTitle: microphoneGranted ? "granted" : "grant"
+                        ) {
+                            requestMicrophone()
+                        }
+
+                        permissionRow(
+                            title: "accessibility",
+                            subtitle: "needed for hold-to-talk shortcuts and auto paste.",
+                            granted: accessibilityGranted,
+                            actionTitle: accessibilityGranted ? "granted" : "open settings"
+                        ) {
+                            requestAccessibility()
+                        }
+
+                        permissionRow(
+                            title: "screen recording",
+                            subtitle: "needed when meeting mode records system audio.",
+                            granted: screenGranted,
+                            actionTitle: screenGranted ? "granted" : "grant"
+                        ) {
+                            requestScreenRecording()
+                        }
+                    }
+
+                    runtimeSection
+                    modelSection
                 }
-
-                permissionRow(
-                    title: "accessibility",
-                    subtitle: "needed for hold-to-talk shortcuts and auto paste.",
-                    granted: accessibilityGranted,
-                    actionTitle: accessibilityGranted ? "granted" : "open settings"
-                ) {
-                    requestAccessibility()
-                }
-
-                permissionRow(
-                    title: "screen recording",
-                    subtitle: "needed when meeting mode records system audio.",
-                    granted: screenGranted,
-                    actionTitle: screenGranted ? "granted" : "grant"
-                ) {
-                    requestScreenRecording()
-                }
+                .padding(18)
             }
 
-            runtimeSection
-            modelSection
-
-            Button(action: onGetStarted) {
-                Text(isReady ? "good to start recording" : "finish setup to continue")
-                    .font(.walky(size: 15, weight: .semibold)).walkyTracking(15)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 13)
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(isReady ? Color(red: 0.04, green: 0.13, blue: 0.05) : .secondary)
-            .background(isReady ? Color(red: 0.875, green: 0.973, blue: 0.875) : Color.gray.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
-            .overlay {
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(isReady ? Color(red: 0.37, green: 0.67, blue: 0.39) : Color.gray.opacity(0.2), lineWidth: 1)
-            }
-            .disabled(!isReady)
+            footerButton
         }
-        .padding(24)
-        .frame(width: 540, height: 660)
+        .frame(width: 420, height: 548)
+        .background(theme.background)
+        .foregroundStyle(theme.text)
         .walkyDefaultTypography()
+        .preferredColorScheme(appearanceMode == .light ? .light : .dark)
         .onAppear {
             refresh()
             setup.refresh()
@@ -85,6 +84,28 @@ struct WalkyOnboardingView: View {
             refresh()
             setup.refresh()
         }
+    }
+
+    private var footerButton: some View {
+        VStack(spacing: 0) {
+            Divider()
+            Button(action: onGetStarted) {
+                Text(isReady ? "good to start recording" : "finish setup to continue")
+                    .font(.walky(size: 15, weight: .semibold)).walkyTracking(15)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 13)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(isReady ? theme.activeText : theme.secondary)
+            .background(isReady ? theme.activePatch : theme.control, in: RoundedRectangle(cornerRadius: 10))
+            .overlay {
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(isReady ? theme.activeLine : theme.line, lineWidth: 1)
+            }
+            .disabled(!isReady)
+            .padding(16)
+        }
+        .background(theme.background)
     }
 
     private var header: some View {
@@ -97,7 +118,7 @@ struct WalkyOnboardingView: View {
                     .font(.walky(size: 24, weight: .semibold)).walkyTracking(24)
                 Text("local voice setup")
                     .font(.walky(size: 13, weight: .medium)).walkyTracking(13)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondary)
             }
         }
     }
@@ -128,7 +149,7 @@ struct WalkyOnboardingView: View {
                 Spacer()
                 Text(setup.status)
                     .font(.walky(size: 12, weight: .semibold)).walkyTracking(12)
-                    .foregroundStyle(setup.selectedModelInstalled ? Color(red: 0.2, green: 0.62, blue: 0.25) : .secondary)
+                    .foregroundStyle(setup.selectedModelInstalled ? theme.activeDot : theme.secondary)
                     .lineLimit(1)
             }
 
@@ -148,8 +169,8 @@ struct WalkyOnboardingView: View {
                         .padding(.vertical, 10)
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(setup.selectedModelInstalled ? Color(red: 0.04, green: 0.13, blue: 0.05) : .white)
-                .background(setup.selectedModelInstalled ? Color(red: 0.875, green: 0.973, blue: 0.875) : Color.accentColor, in: RoundedRectangle(cornerRadius: 10))
+                .foregroundStyle(setup.selectedModelInstalled ? theme.activeText : theme.themeSelectedText)
+                .background(setup.selectedModelInstalled ? theme.activePatch : theme.themeSelectedBackground, in: RoundedRectangle(cornerRadius: 10))
                 .disabled(setup.isWorking)
 
                 Button {
@@ -161,8 +182,8 @@ struct WalkyOnboardingView: View {
                         .padding(.vertical, 10)
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(.primary)
-                .background(Color.gray.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+                .foregroundStyle(theme.text)
+                .background(theme.control, in: RoundedRectangle(cornerRadius: 10))
             }
         }
     }
@@ -187,7 +208,7 @@ struct WalkyOnboardingView: View {
             HStack(spacing: 12) {
                 Image(systemName: selected ? "largecircle.fill.circle" : "circle")
                     .font(.walky(size: 16, weight: .semibold)).walkyTracking(16)
-                    .foregroundStyle(selected ? Color.accentColor : .secondary)
+                    .foregroundStyle(selected ? theme.themeSelectedBackground : theme.secondary)
 
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 8) {
@@ -196,15 +217,15 @@ struct WalkyOnboardingView: View {
                         if option.id == "large-v3-turbo" {
                             Text("recommended")
                                 .font(.walky(size: 10, weight: .bold)).walkyTracking(10)
-                                .foregroundStyle(Color(red: 0.08, green: 0.35, blue: 0.12))
+                                .foregroundStyle(theme.activeText)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 3)
-                                .background(Color(red: 0.875, green: 0.973, blue: 0.875), in: Capsule())
+                                .background(theme.activePatch, in: Capsule())
                         }
                     }
                     Text(option.detail)
                         .font(.walky(size: 11)).walkyTracking(11)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.secondary)
                         .lineLimit(1)
                 }
 
@@ -213,11 +234,11 @@ struct WalkyOnboardingView: View {
                 VStack(alignment: .trailing, spacing: 3) {
                     Text(installed ? "installed" : option.size)
                         .font(.walky(size: 11, weight: .semibold)).walkyTracking(11)
-                        .foregroundStyle(installed ? Color(red: 0.2, green: 0.62, blue: 0.25) : .secondary)
+                        .foregroundStyle(installed ? theme.activeDot : theme.secondary)
                     if installed {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.walky(size: 14, weight: .semibold)).walkyTracking(14)
-                            .foregroundStyle(Color(red: 0.2, green: 0.62, blue: 0.25))
+                            .foregroundStyle(theme.activeDot)
                     }
                 }
             }
@@ -225,7 +246,7 @@ struct WalkyOnboardingView: View {
             .background(modelRowBackground(selected: selected, installed: installed), in: RoundedRectangle(cornerRadius: 10))
             .overlay {
                 RoundedRectangle(cornerRadius: 10)
-                    .stroke(selected ? Color.accentColor.opacity(0.55) : Color.gray.opacity(0.18), lineWidth: 1)
+                    .stroke(selected ? theme.themeSelectedBackground.opacity(0.55) : theme.line, lineWidth: 1)
             }
         }
         .buttonStyle(.plain)
@@ -233,12 +254,12 @@ struct WalkyOnboardingView: View {
 
     private func modelRowBackground(selected: Bool, installed: Bool) -> Color {
         if selected && installed {
-            return Color(red: 0.875, green: 0.973, blue: 0.875).opacity(0.7)
+            return theme.activePatch.opacity(0.7)
         }
         if selected {
-            return Color.accentColor.opacity(0.12)
+            return theme.themeSelectedBackground.opacity(0.12)
         }
-        return Color.gray.opacity(0.06)
+        return theme.settingBackground
     }
 
     private func permissionRow(
@@ -250,7 +271,7 @@ struct WalkyOnboardingView: View {
     ) -> some View {
         HStack(spacing: 12) {
             Image(systemName: granted ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle(granted ? Color(red: 0.12, green: 0.62, blue: 0.22) : .secondary)
+                .foregroundStyle(granted ? theme.activeDot : theme.secondary)
                 .font(.walky(size: 18, weight: .semibold)).walkyTracking(18)
 
             VStack(alignment: .leading, spacing: 3) {
@@ -258,7 +279,7 @@ struct WalkyOnboardingView: View {
                     .font(.walky(size: 15, weight: .semibold)).walkyTracking(15)
                 Text(subtitle)
                     .font(.walky(size: 12)).walkyTracking(12)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondary)
                     .lineLimit(2)
             }
 
@@ -271,14 +292,15 @@ struct WalkyOnboardingView: View {
                     .padding(.vertical, 7)
             }
             .buttonStyle(.plain)
-            .background(Color.gray.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+            .foregroundStyle(theme.text)
+            .background(theme.control, in: RoundedRectangle(cornerRadius: 8))
             .disabled(granted)
         }
         .padding(13)
-        .background(Color.gray.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
+        .background(theme.settingBackground, in: RoundedRectangle(cornerRadius: 10))
         .overlay {
             RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.gray.opacity(0.18), lineWidth: 1)
+                .stroke(theme.line, lineWidth: 1)
         }
     }
 
