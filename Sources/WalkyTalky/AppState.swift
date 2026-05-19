@@ -112,6 +112,7 @@ final class AppState: ObservableObject {
     private let transcriber: WhisperTranscriber
     private var transcriptStore: TranscriptStore?
     private let cleanup = TranscriptCleanup()
+    private let autoPasteEngine = AutoPasteEngine()
     private var activeMeetingID: UUID?
     private var meetingStartedAt: Date?
     private var meetingChunkStartedAt: Date?
@@ -1180,110 +1181,23 @@ final class AppState: ObservableObject {
 
     private func pasteIfEnabledAfterCopy() {
         guard autoPasteEnabled else { return }
-        guard AXIsProcessTrusted() else {
-            statusDetail = "copied. allow accessibility to auto-paste."
-            return
-        }
 
         let targetBundleID = pasteTargetBundleIdentifier
         let targetPID = pasteTargetProcessIdentifier
+        let ownBundleID = Bundle.main.bundleIdentifier
+        let text = NSPasteboard.general.string(forType: .string) ?? ""
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-            if let targetPID, let targetApp = NSRunningApplication(processIdentifier: targetPID) {
-                self.activateAndPaste(targetApp: targetApp, fallbackPID: targetPID)
-            } else {
-                if let targetBundleID,
-                   let targetApp = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == targetBundleID }) {
-                    self.activateAndPaste(targetApp: targetApp, fallbackPID: nil)
-                } else {
-                    self.postPasteWithSystemEvents()
-                }
-            }
-        }
-    }
-
-    private func activateAndPaste(targetApp: NSRunningApplication, fallbackPID: pid_t?) {
-        let activated = targetApp.activate(options: [.activateAllWindows])
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
-            if let fallbackPID, self.postPasteWithSystemEvents(to: fallbackPID) {
-                self.statusDetail = "local transcript pasted."
-                return
-            }
-            if self.postPasteWithSystemEvents() {
-                self.statusDetail = "local transcript pasted."
-                return
-            }
-            if let fallbackPID {
-                self.postPaste(to: fallbackPID)
-                self.statusDetail = "local transcript pasted."
-            } else if activated {
-                self.postPasteGlobally()
-                self.statusDetail = "local transcript pasted."
-            } else {
-                self.postPasteGlobally()
-                self.statusDetail = "local transcript pasted."
-            }
-        }
-    }
-
-    @discardableResult
-    private func postPasteWithSystemEvents(to processIdentifier: pid_t) -> Bool {
-        let source = """
-        tell application "System Events"
-            set targetProcess to first application process whose unix id is \(processIdentifier)
-            set frontmost of targetProcess to true
-            delay 0.05
-            keystroke "v" using command down
-        end tell
-        """
-        var error: NSDictionary?
-        guard let script = NSAppleScript(source: source) else { return false }
-        script.executeAndReturnError(&error)
-        if error != nil {
-            statusDetail = "copied. auto-paste needs automation/accessibility permission."
-            return false
-        }
-        return true
-    }
-
-    @discardableResult
-    private func postPasteWithSystemEvents() -> Bool {
-        let source = """
-        tell application "System Events"
-            keystroke "v" using command down
-        end tell
-        """
-        var error: NSDictionary?
-        guard let script = NSAppleScript(source: source) else { return false }
-        script.executeAndReturnError(&error)
-        if error != nil {
-            statusDetail = "copied. auto-paste needs automation/accessibility permission."
-            return false
-        }
-        return true
-    }
-
-    private func postPaste(to processIdentifier: pid_t) {
-        let source = CGEventSource(stateID: .combinedSessionState)
-        let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: true)
-        let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false)
-        keyDown?.flags = .maskCommand
-        keyUp?.flags = .maskCommand
-        keyDown?.postToPid(processIdentifier)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.035) {
-            keyUp?.postToPid(processIdentifier)
-        }
-    }
-
-    private func postPasteGlobally() {
-        let source = CGEventSource(stateID: .combinedSessionState)
-        let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: true)
-        let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false)
-        keyDown?.flags = .maskCommand
-        keyUp?.flags = .maskCommand
-        keyDown?.post(tap: .cghidEventTap)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.035) {
-            keyUp?.post(tap: .cghidEventTap)
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 80_000_000)
+            let outcome = await autoPasteEngine.paste(
+                text: text,
+                targetBundleID: targetBundleID,
+                targetPID: targetPID,
+                ownBundleID: ownBundleID
+            )
+            statusDetail = outcome.pasted
+                ? "local transcript pasted with \(outcome.method.rawValue)."
+                : "copied. \(outcome.detail)"
         }
     }
 
