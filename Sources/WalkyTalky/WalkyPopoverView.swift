@@ -84,6 +84,7 @@ struct WalkyPopoverView: View {
         VStack(alignment: .leading, spacing: 22) {
             header
             modeTabs
+            meetingSuggestion
 
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 24) {
@@ -138,6 +139,7 @@ struct WalkyPopoverView: View {
                     )
                     appearanceRow
                     transcriptStyleRow
+                    autoPasteStatusRow
                 }
             }
 
@@ -183,10 +185,13 @@ struct WalkyPopoverView: View {
                 Text("custom words")
                     .font(.walky(size: 13, weight: .bold)).walkyTracking(13)
                     .foregroundStyle(theme.secondary)
+                Text("\(state.customDictionary.count) saved terms. use commas to add a few at once.")
+                    .font(.walky(size: 12, weight: .medium)).walkyTracking(12)
+                    .foregroundStyle(theme.secondary)
 
                 VStack(spacing: 8) {
-                    dictionaryField("heard as", text: $dictionarySpoken)
-                    dictionaryField("write as", text: $dictionaryReplacement)
+                    dictionaryField("heard as, like open ai", text: $dictionarySpoken)
+                    dictionaryField("write as, like OpenAI", text: $dictionaryReplacement)
                     Button {
                         state.addDictionaryEntry(spoken: dictionarySpoken, replacement: dictionaryReplacement)
                         dictionarySpoken = ""
@@ -208,16 +213,32 @@ struct WalkyPopoverView: View {
             }
 
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 0) {
+                if state.customDictionary.isEmpty {
+                    VStack(alignment: .leading, spacing: 9) {
+                        Text("add names, product words, acronyms, and phrases that whisper often hears wrongly.")
+                            .font(.walky(size: 14, weight: .medium)).walkyTracking(14)
+                            .foregroundStyle(theme.secondary)
+                        HStack(spacing: 6) {
+                            sampleChip("OpenAI")
+                            sampleChip("Shashank")
+                            sampleChip("walky talky")
+                        }
+                    }
+                    .padding(.vertical, 12)
+                } else {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 124), spacing: 8)], spacing: 8) {
                     ForEach(state.customDictionary) { entry in
-                        HStack(spacing: 12) {
-                            VStack(alignment: .leading, spacing: 3) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(alignment: .top, spacing: 6) {
+                                VStack(alignment: .leading, spacing: 2) {
                                 Text(entry.spoken)
                                     .font(.walky(size: 12, weight: .semibold)).walkyTracking(12)
                                     .foregroundStyle(theme.secondary)
                                 Text(entry.replacement)
                                     .font(.walky(size: 15, weight: .regular)).walkyTracking(15)
                                     .foregroundStyle(theme.text)
+                                        .lineLimit(2)
+                                        .minimumScaleFactor(0.8)
                                     .textSelection(.enabled)
                             }
                             Spacer()
@@ -225,13 +246,15 @@ struct WalkyPopoverView: View {
                                 state.deleteDictionaryEntry(entry)
                             }
                         }
-                        .padding(.vertical, 11)
-                        .overlay(alignment: .top) {
-                            Rectangle()
-                                .fill(theme.line)
-                                .frame(height: 1)
+                        }
+                        .padding(10)
+                        .background(theme.settingBackground, in: RoundedRectangle(cornerRadius: 10))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(theme.line, lineWidth: 1)
                         }
                     }
+                }
                 }
             }
         }
@@ -310,6 +333,38 @@ struct WalkyPopoverView: View {
                 isActive: state.selectedMode == .meeting
             ) {
                 state.toggleMeetingModeFromPopover()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var meetingSuggestion: some View {
+        if let appName = state.suggestedMeetingAppName, state.selectedMode != .meeting, !isRecording, !isTranscribing {
+            HStack(spacing: 10) {
+                Image(systemName: "person.wave.2")
+                    .font(.walky(size: 15, weight: .semibold)).walkyTracking(15)
+                    .foregroundStyle(theme.activeDot)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(appName) detected")
+                        .font(.walky(size: 13, weight: .semibold)).walkyTracking(13)
+                        .foregroundStyle(theme.text)
+                    Text("switch to meeting when you want notes.")
+                        .font(.walky(size: 12, weight: .medium)).walkyTracking(12)
+                        .foregroundStyle(theme.secondary)
+                }
+                Spacer()
+                iconButton("start meeting", systemImage: "record.circle") {
+                    state.toggleMeetingModeFromPopover()
+                }
+                iconButton("dismiss", systemImage: "xmark") {
+                    state.dismissMeetingSuggestion()
+                }
+            }
+            .padding(11)
+            .background(theme.settingBackground, in: RoundedRectangle(cornerRadius: 10))
+            .overlay {
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(theme.line, lineWidth: 1)
             }
         }
     }
@@ -510,6 +565,19 @@ struct WalkyPopoverView: View {
             }
     }
 
+    private func sampleChip(_ text: String) -> some View {
+        Text(text)
+            .font(.walky(size: 12, weight: .semibold)).walkyTracking(12)
+            .foregroundStyle(theme.secondary)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 6)
+            .background(theme.control, in: RoundedRectangle(cornerRadius: 8))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(theme.line, lineWidth: 1)
+            }
+    }
+
     private func analyticsCard(_ card: AnalyticsCard) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .center) {
@@ -685,6 +753,30 @@ struct WalkyPopoverView: View {
                 RoundedRectangle(cornerRadius: 8)
                     .stroke(theme.line, lineWidth: 1)
             }
+        }
+        .padding(13)
+        .background(theme.settingBackground, in: RoundedRectangle(cornerRadius: 10))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(theme.line, lineWidth: 1)
+        }
+    }
+
+    private var autoPasteStatusRow: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("auto paste")
+                    .font(.walky(size: 14, weight: .semibold)).walkyTracking(14)
+                    .foregroundStyle(theme.text)
+                Text(state.autoPastePermissionDetail)
+                    .font(.walky(size: 12)).walkyTracking(12)
+                    .foregroundStyle(theme.secondary)
+                    .lineLimit(2)
+            }
+            Spacer()
+            Circle()
+                .fill(state.autoPastePermissionDetail.contains("granted") ? theme.activeDot : theme.secondary)
+                .frame(width: 9, height: 9)
         }
         .padding(13)
         .background(theme.settingBackground, in: RoundedRectangle(cornerRadius: 10))

@@ -32,6 +32,7 @@ struct AutoPasteEngine {
 
         guard AXIsProcessTrusted() else {
             requestAccessibilityPrompt()
+            writePlainText(text)
             return AutoPasteOutcome(
                 pasted: false,
                 method: .unavailable,
@@ -47,11 +48,11 @@ struct AutoPasteEngine {
         let effectiveTarget = target ?? currentExternalFrontmostApplication(ownBundleID: ownBundleID)
 
         if shouldPasteIntoCurrentFrontmost(target: effectiveTarget, ownBundleID: ownBundleID) {
-            pasteWithBestEffortKeyboard(text: text)
+            await pasteWithBestEffortKeyboard(text: text, restoresClipboard: true)
             return AutoPasteOutcome(
                 pasted: true,
                 method: .keyboardPasteAttempt,
-                detail: "sent command-v to the currently focused app."
+                detail: "sent command-v to the currently focused app and restored the clipboard."
             )
         }
 
@@ -71,7 +72,7 @@ struct AutoPasteEngine {
                 return AutoPasteOutcome(
                     pasted: true,
                     method: .keyboardPaste,
-                    detail: "pasted with command-v into the focused target app."
+                    detail: "pasted with command-v and restored the clipboard."
                 )
             }
 
@@ -79,7 +80,7 @@ struct AutoPasteEngine {
             return AutoPasteOutcome(
                 pasted: true,
                 method: .keyboardPasteAttempt,
-                detail: "sent command-v to the original target app."
+                detail: "sent command-v to the original target app and restored the clipboard."
             )
         }
 
@@ -205,8 +206,8 @@ struct AutoPasteEngine {
     }
 
     private func pasteWithKeyboard(text: String, into target: NSRunningApplication) async -> Bool {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
+        let snapshot = PasteboardSnapshot.capture()
+        writePlainText(text)
 
         target.activate(options: [.activateAllWindows])
         try? await Task.sleep(nanoseconds: 180_000_000)
@@ -214,29 +215,39 @@ struct AutoPasteEngine {
         postCommandVGlobally()
         try? await Task.sleep(nanoseconds: 180_000_000)
         if focusedTargetValueContains(text, processIdentifier: target.processIdentifier) {
+            await restoreClipboard(snapshot)
             return true
         }
 
         if postCommandVWithSystemEvents(processIdentifier: target.processIdentifier) {
             try? await Task.sleep(nanoseconds: 180_000_000)
-            return focusedTargetValueContains(text, processIdentifier: target.processIdentifier)
+            let pasted = focusedTargetValueContains(text, processIdentifier: target.processIdentifier)
+            if pasted {
+                await restoreClipboard(snapshot)
+            }
+            return pasted
         }
 
+        snapshot.restore()
         return false
     }
 
     private func pasteWithBestEffortKeyboard(text: String, into target: NSRunningApplication) async {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
+        let snapshot = PasteboardSnapshot.capture()
+        writePlainText(text)
         target.activate(options: [.activateAllWindows])
         try? await Task.sleep(nanoseconds: 220_000_000)
         postCommandVGlobally()
+        await restoreClipboard(snapshot)
     }
 
-    private func pasteWithBestEffortKeyboard(text: String) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
+    private func pasteWithBestEffortKeyboard(text: String, restoresClipboard: Bool = false) async {
+        let snapshot = restoresClipboard ? PasteboardSnapshot.capture() : nil
+        writePlainText(text)
         postCommandVGlobally()
+        if let snapshot {
+            await restoreClipboard(snapshot)
+        }
     }
 
     private func focusedTargetValueContains(_ text: String, processIdentifier: pid_t) -> Bool {
@@ -268,6 +279,16 @@ struct AutoPasteEngine {
         AXIsProcessTrustedWithOptions(options)
     }
 
+    private func writePlainText(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+    }
+
+    private func restoreClipboard(_ snapshot: PasteboardSnapshot) async {
+        try? await Task.sleep(nanoseconds: 650_000_000)
+        snapshot.restore()
+    }
+
     private func postCommandVWithSystemEvents(processIdentifier: pid_t) -> Bool {
         let source = """
         tell application "System Events"
@@ -281,5 +302,35 @@ struct AutoPasteEngine {
         guard let script = NSAppleScript(source: source) else { return false }
         script.executeAndReturnError(&error)
         return error == nil
+    }
+}
+
+private struct PasteboardSnapshot {
+    private let items: [[NSPasteboard.PasteboardType: Data]]
+
+    static func capture() -> PasteboardSnapshot {
+        let captured: [[NSPasteboard.PasteboardType: Data]] = NSPasteboard.general.pasteboardItems?.map { item in
+            var values: [NSPasteboard.PasteboardType: Data] = [:]
+            for type in item.types {
+                if let data = item.data(forType: type) {
+                    values[type] = data
+                }
+            }
+            return values
+        } ?? []
+        return PasteboardSnapshot(items: captured)
+    }
+
+    func restore() {
+        guard !items.isEmpty else { return }
+        NSPasteboard.general.clearContents()
+        let restoredItems = items.map { values in
+            let item = NSPasteboardItem()
+            for (type, data) in values {
+                item.setData(data, forType: type)
+            }
+            return item
+        }
+        NSPasteboard.general.writeObjects(restoredItems)
     }
 }

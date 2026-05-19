@@ -8,6 +8,6 @@ struct CustomDictionaryEntry: Codable, Identifiable, Equatable {
     init(id: UUID = UUID(), spoken: String, replacement: String) {
         self.id = id
         self.spoken = spoken.lowercased()
-        self.replacement = replacement.lowercased()
+        self.replacement = replacement
     }
 }

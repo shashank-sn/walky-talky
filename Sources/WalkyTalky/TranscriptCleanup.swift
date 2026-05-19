@@ -4,7 +4,7 @@ struct TranscriptCleanup {
     enum Style: String, CaseIterable, Identifiable {
         case formal
         case casual
-        case verbatim
+        case clean
 
         var id: String { rawValue }
 
@@ -14,8 +14,19 @@ struct TranscriptCleanup {
                 "clean punctuation with normal sentence capitalization."
             case .casual:
                 "relaxed cleanup with everything lowercase."
-            case .verbatim:
-                "keeps more spoken wording for faithful voice notes."
+            case .clean:
+                "clean voice-to-text with light edits and natural punctuation."
+            }
+        }
+
+        var formatterPrompt: String {
+            switch self {
+            case .formal:
+                "format as polished writing with normal sentence capitalization, clean punctuation, and no filler words."
+            case .casual:
+                "format as casual dictation, keep everything lowercase, clean punctuation, and preserve a natural spoken tone."
+            case .clean:
+                "format as clean voice-to-text, remove obvious filler, keep wording close to the speaker, and use readable punctuation."
             }
         }
     }
@@ -28,11 +39,11 @@ struct TranscriptCleanup {
         var result = text.trimmingCharacters(in: .whitespacesAndNewlines)
         result = result.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
         result = replaceSpokenPunctuation(in: result)
-        if style != .verbatim {
+        if style != .clean {
             result = removeConservativeFillers(in: result)
         }
         result = normalizePunctuationSpacing(result)
-        if style != .verbatim {
+        if style != .clean {
             result = paragraphize(result)
         }
         result = applyDictionary(dictionary, to: result)
@@ -42,7 +53,7 @@ struct TranscriptCleanup {
             return result.lowercased()
         case .formal:
             return formalize(result)
-        case .verbatim:
+        case .clean:
             return normalizeStandaloneI(result)
         }
     }

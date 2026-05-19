@@ -7,6 +7,7 @@ struct WhisperModelOption: Identifiable, Equatable {
     let detail: String
     let fileName: String
     let size: String
+    let minimumBytes: Int64
     let sourceURL: URL
 }
 
@@ -26,6 +27,7 @@ final class WhisperRuntimeSetup: ObservableObject {
             detail: "recommended for accent handling and cleaner dictation.",
             fileName: "ggml-large-v3-turbo.bin",
             size: "about 1.5 gb",
+            minimumBytes: 1_000_000_000,
             sourceURL: URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin")!
         ),
         WhisperModelOption(
@@ -34,6 +36,7 @@ final class WhisperRuntimeSetup: ObservableObject {
             detail: "small fallback for quick setup and low storage use.",
             fileName: "ggml-base.en.bin",
             size: "about 141 mb",
+            minimumBytes: 100_000_000,
             sourceURL: URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin")!
         ),
         WhisperModelOption(
@@ -42,6 +45,7 @@ final class WhisperRuntimeSetup: ObservableObject {
             detail: "optional meeting model with tinydiarize support.",
             fileName: "ggml-small.en-tdrz.bin",
             size: "about 465 mb",
+            minimumBytes: 350_000_000,
             sourceURL: URL(string: "https://huggingface.co/akashmjn/tinydiarize-whisper.cpp/resolve/main/ggml-small.en-tdrz.bin")!
         )
     ]
@@ -84,11 +88,14 @@ final class WhisperRuntimeSetup: ObservableObject {
             : "missing local whisper runtime"
 
         let contents = (try? fileManager.contentsOfDirectory(at: paths.models, includingPropertiesForKeys: nil)) ?? []
-        installedModelNames = Set(
-            contents
-                .map(\.lastPathComponent)
-                .filter { $0.hasPrefix("ggml-") && $0.hasSuffix(".bin") }
-        )
+        installedModelNames = Set(contents.compactMap { url in
+            let name = url.lastPathComponent
+            guard name.hasPrefix("ggml-"), name.hasSuffix(".bin") else { return nil }
+            if let option = Self.modelOptions.first(where: { $0.fileName == name }) {
+                return modelIsValid(at: url, option: option) ? name : nil
+            }
+            return modelSize(at: url) > 1_000_000 ? name : nil
+        })
 
         if selectedModelInstalled {
             UserDefaults.standard.set(selectedOption.fileName, forKey: WhisperTranscriber.preferredModelKey)
@@ -136,9 +143,8 @@ final class WhisperRuntimeSetup: ObservableObject {
             }
 
             try fileManager.moveItem(at: temporaryURL, to: partial)
-            let attributes = try fileManager.attributesOfItem(atPath: partial.path)
-            let size = (attributes[.size] as? NSNumber)?.int64Value ?? 0
-            guard size > 1_000_000 else {
+            let size = modelSize(at: partial)
+            guard size >= option.minimumBytes else {
                 throw WalkyError.transcription("downloaded model is too small to be valid.")
             }
 
@@ -179,6 +185,15 @@ final class WhisperRuntimeSetup: ObservableObject {
         }
 
         return nil
+    }
+
+    private func modelIsValid(at url: URL, option: WhisperModelOption) -> Bool {
+        modelSize(at: url) >= option.minimumBytes
+    }
+
+    private func modelSize(at url: URL) -> Int64 {
+        let attributes = try? fileManager.attributesOfItem(atPath: url.path)
+        return (attributes?[.size] as? NSNumber)?.int64Value ?? 0
     }
 
     private func findExecutableOnPath(_ name: String) -> String? {

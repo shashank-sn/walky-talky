@@ -13,9 +13,6 @@ enum AutoPasteSmokeTest {
         let bundleID = value(after: "--bundle-id", in: arguments)
         let pid = value(after: "--pid", in: arguments).flatMap { pid_t($0) }
 
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
-
         let outcome = await AutoPasteEngine().paste(
             text: text,
             targetBundleID: bundleID,

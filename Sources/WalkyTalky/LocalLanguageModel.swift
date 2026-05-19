@@ -25,9 +25,13 @@ struct LocalLanguageModel {
         return .unavailable
     }
 
-    func refine(_ text: String) async throws -> String {
+    func refine(
+        _ text: String,
+        style: TranscriptCleanup.Style = .formal,
+        dictionary: [CustomDictionaryEntry] = []
+    ) async throws -> String {
         if let ollama = findExecutable("ollama") {
-            return try await runOllama(ollama, text: text)
+            return try await runOllama(ollama, text: text, style: style, dictionary: dictionary)
         }
 
         throw WalkyError.transcription(
@@ -35,9 +39,20 @@ struct LocalLanguageModel {
         )
     }
 
-    private func runOllama(_ executable: URL, text: String) async throws -> String {
+    private func runOllama(
+        _ executable: URL,
+        text: String,
+        style: TranscriptCleanup.Style,
+        dictionary: [CustomDictionaryEntry]
+    ) async throws -> String {
+        let dictionaryInstruction = dictionary.isEmpty
+            ? "No custom dictionary is configured."
+            : "Use this custom dictionary exactly where relevant: \(dictionary.map { "\($0.spoken) -> \($0.replacement)" }.joined(separator: ", "))."
         let prompt = """
-        Clean this transcript locally. Preserve meaning. Do not invent facts. Keep names and numbers unchanged. Return only the cleaned transcript.
+        Clean this transcript locally. Preserve meaning. Do not invent facts. Keep names and numbers unchanged.
+        Style: \(style.formatterPrompt)
+        \(dictionaryInstruction)
+        Return only the cleaned transcript.
 
         \(text)
         """

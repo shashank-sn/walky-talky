@@ -103,6 +103,8 @@ final class AppState: ObservableObject {
             Self.saveCustomDictionary(customDictionary)
         }
     }
+    @Published var suggestedMeetingAppName: String?
+    @Published var autoPastePermissionDetail: String
     @Published var statusDetail = "hold control + option to record."
     @Published var localLLMStatus = LocalLanguageModel.RuntimeStatus.unavailable.title
 
@@ -113,6 +115,7 @@ final class AppState: ObservableObject {
     private var transcriptStore: TranscriptStore?
     private let cleanup = TranscriptCleanup()
     private let autoPasteEngine = AutoPasteEngine()
+    private let speechGate = AudioSpeechGate()
     private let logger: WalkyLogger
     private var activeMeetingID: UUID?
     private var meetingStartedAt: Date?
@@ -140,6 +143,13 @@ final class AppState: ObservableObject {
     private static let tinydiarizeKey = "walkyTalky.tinydiarizeEnabled"
     private static let appearanceModeKey = "walkyTalky.appearanceMode"
     private static let customDictionaryKey = "walkyTalky.customDictionary"
+    private static let meetingBundleNames: [String: String] = [
+        "us.zoom.xos": "zoom",
+        "com.microsoft.teams": "microsoft teams",
+        "com.microsoft.teams2": "microsoft teams",
+        "com.cisco.webexmeetingsapp": "webex",
+        "com.apple.facetime": "facetime"
+    ]
     var shortcutPresetDidChange: (() -> Void)?
     var isActivelyRecording: Bool {
         if case .recording = recordingState {
@@ -188,6 +198,9 @@ final class AppState: ObservableObject {
             .string(forKey: Self.appearanceModeKey)
             .flatMap(AppearanceMode.init(rawValue:)) ?? .dark
         self.customDictionary = Self.loadCustomDictionary()
+        self.autoPastePermissionDetail = AXIsProcessTrusted()
+            ? "auto-paste permission granted."
+            : "auto-paste needs accessibility permission."
 
         do {
             try paths.ensureCreated()
@@ -205,6 +218,7 @@ final class AppState: ObservableObject {
             if let app = NSWorkspace.shared.frontmostApplication {
                 rememberExternalApp(app)
             }
+            refreshMeetingSuggestion()
             observeExternalAppActivations()
         } catch {
             recordingState = .failed("could not prepare local storage.")
@@ -288,6 +302,11 @@ final class AppState: ObservableObject {
         startMeetingRecording()
     }
 
+    func dismissMeetingSuggestion() {
+        suggestedMeetingAppName = nil
+        statusDetail = "meeting suggestion dismissed."
+    }
+
     func setAppearanceMode(_ mode: AppearanceMode) {
         appearanceMode = mode
         statusDetail = "using \(mode.rawValue.lowercased()) appearance."
@@ -302,15 +321,30 @@ final class AppState: ObservableObject {
     }
 
     func addDictionaryEntry(spoken: String, replacement: String) {
-        let cleanSpoken = spoken.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let cleanReplacement = replacement.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !cleanSpoken.isEmpty, !cleanReplacement.isEmpty else {
+        let spokenTerms = spoken
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+            .filter { !$0.isEmpty }
+        let replacementTerms = replacement
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        guard !spokenTerms.isEmpty, !replacementTerms.isEmpty else {
             statusDetail = "add both spoken text and replacement."
             return
         }
-        customDictionary.removeAll { $0.spoken == cleanSpoken }
-        customDictionary.insert(CustomDictionaryEntry(spoken: cleanSpoken, replacement: cleanReplacement), at: 0)
-        statusDetail = "dictionary updated."
+
+        var added = 0
+        for (index, cleanSpoken) in spokenTerms.enumerated() {
+            let cleanReplacement = replacementTerms.indices.contains(index)
+                ? replacementTerms[index]
+                : replacementTerms[0]
+            customDictionary.removeAll { $0.spoken == cleanSpoken }
+            customDictionary.insert(CustomDictionaryEntry(spoken: cleanSpoken, replacement: cleanReplacement), at: 0)
+            added += 1
+        }
+        statusDetail = added == 1 ? "dictionary updated." : "\(added) dictionary entries added."
     }
 
     private func ensureDefaultDictionaryEntries() {
@@ -331,11 +365,13 @@ final class AppState: ObservableObject {
     private func learnDictionary(from rawText: String, polishedText: String) {
         let raw = rawText.lowercased()
         let polished = polishedText.lowercased()
-        let candidates = [
+        var candidates = [
             ("walkie-talkie", "walky talky"),
             ("walkie talkie", "walky talky"),
             ("walky-talky", "walky talky")
         ]
+
+        candidates.append(contentsOf: inferredCapitalizedTerms(from: rawText, polishedText: polishedText))
 
         for (spoken, replacement) in candidates {
             if raw.contains(spoken) || polished.contains(spoken) {
@@ -585,7 +621,11 @@ final class AppState: ObservableObject {
         Task { @MainActor in
             do {
                 let source = latestTranscript.polishedText.isEmpty ? latestTranscript.rawText : latestTranscript.polishedText
-                let refined = try await localLanguageModel.refine(source)
+                let refined = try await localLanguageModel.refine(
+                    source,
+                    style: transcriptStyle,
+                    dictionary: customDictionary
+                )
                 copy(refined)
                 recordingState = .complete
                 statusDetail = "copied local llm refinement."
@@ -880,6 +920,9 @@ final class AppState: ObservableObject {
         autoPasteEnabled = enabled
         if enabled {
             requestAccessibilityIfNeeded()
+            autoPastePermissionDetail = AXIsProcessTrusted()
+                ? "auto-paste permission granted."
+                : "auto-paste needs accessibility permission."
         }
     }
 
@@ -1148,6 +1191,15 @@ final class AppState: ObservableObject {
 
     private func transcribe(_ audioURL: URL) async {
         do {
+            let gate = speechGate.evaluate(audioURL)
+            logger.write("speech_gate dictation skip=\(gate.shouldSkip) reason=\(gate.reason) peak_rms=\(gate.peakRMS) peak_amp=\(gate.peakAmplitude) windows=\(gate.windows) speech_windows=\(gate.speechWindows)")
+            if gate.shouldSkip {
+                try? FileManager.default.removeItem(at: audioURL)
+                recordingState = .complete
+                statusDetail = "skipped \(gate.reason). nothing to transcribe."
+                return
+            }
+
             let rawText = try await transcriber.transcribe(audioURL)
             let polishedText = cleanup.polish(rawText, dictionary: customDictionary, style: transcriptStyle)
             learnDictionary(from: rawText, polishedText: polishedText)
@@ -1166,8 +1218,12 @@ final class AppState: ObservableObject {
             deleteDictationAudioIfNeeded(for: record)
             recentTranscripts.insert(record, at: 0)
             recentTranscripts = Array(recentTranscripts.prefix(8))
-            copy(polishedText)
-            pasteIfEnabledAfterCopy()
+            if autoPasteEnabled {
+                pasteIfEnabled(polishedText)
+            } else {
+                copy(polishedText)
+                statusDetail = "copied transcript."
+            }
             recordingState = .complete
         } catch {
             recordingState = .failed("transcription failed.")
@@ -1196,13 +1252,12 @@ final class AppState: ObservableObject {
         NSPasteboard.general.setString(text, forType: .string)
     }
 
-    private func pasteIfEnabledAfterCopy() {
+    private func pasteIfEnabled(_ text: String) {
         guard autoPasteEnabled else { return }
 
         let targetBundleID = pasteTargetBundleIdentifier
         let targetPID = pasteTargetProcessIdentifier
         let ownBundleID = Bundle.main.bundleIdentifier
-        let text = NSPasteboard.general.string(forType: .string) ?? ""
         let frontmost = NSWorkspace.shared.frontmostApplication
         logger.write("paste_start enabled=true text_length=\(text.count) target_pid=\(targetPID.map(String.init) ?? "nil") target_bundle=\(targetBundleID ?? "nil") front_pid=\(frontmost.map { String($0.processIdentifier) } ?? "nil") front_bundle=\(frontmost?.bundleIdentifier ?? "nil") ax_trusted=\(AXIsProcessTrusted())")
 
@@ -1215,6 +1270,9 @@ final class AppState: ObservableObject {
                 ownBundleID: ownBundleID
             )
             logger.write("paste_outcome pasted=\(outcome.pasted) method=\(outcome.method.rawValue) detail=\(outcome.detail)")
+            autoPastePermissionDetail = AXIsProcessTrusted()
+                ? "auto-paste permission granted."
+                : "auto-paste needs accessibility permission."
             statusDetail = outcome.pasted
                 ? "local transcript pasted with \(outcome.method.rawValue)."
                 : "copied. \(outcome.detail)"
@@ -1238,6 +1296,7 @@ final class AppState: ObservableObject {
             }
             Task { @MainActor in
                 _ = self?.rememberExternalApp(app)
+                self?.updateMeetingSuggestion(for: app)
             }
         }
     }
@@ -1254,6 +1313,43 @@ final class AppState: ObservableObject {
         lastExternalProcessIdentifier = app.processIdentifier
         logger.write("external_app active pid=\(app.processIdentifier) bundle=\(app.bundleIdentifier ?? "nil") name=\(app.localizedName ?? "nil")")
         return true
+    }
+
+    private func refreshMeetingSuggestion() {
+        for app in NSWorkspace.shared.runningApplications where !app.isTerminated {
+            updateMeetingSuggestion(for: app)
+            if suggestedMeetingAppName != nil { break }
+        }
+    }
+
+    private func updateMeetingSuggestion(for app: NSRunningApplication) {
+        guard selectedMode != .meeting, !isActivelyRecording else { return }
+        guard let bundle = app.bundleIdentifier?.lowercased() else { return }
+        if let name = Self.meetingBundleNames[bundle] {
+            suggestedMeetingAppName = name
+        }
+    }
+
+    private func inferredCapitalizedTerms(from rawText: String, polishedText: String) -> [(String, String)] {
+        let source = rawText + " " + polishedText
+        let pattern = #"\b[A-Z][A-Za-z0-9]*(?:[- ][A-Z0-9][A-Za-z0-9]*){0,3}\b"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+        let range = NSRange(source.startIndex..<source.endIndex, in: source)
+        let matches = regex.matches(in: source, range: range)
+        let ignored: Set<String> = ["I"]
+        var terms: [(String, String)] = []
+
+        for match in matches {
+            guard let matchRange = Range(match.range, in: source) else { continue }
+            let term = String(source[matchRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard term.count >= 3, !ignored.contains(term) else { continue }
+            let spoken = term.lowercased()
+            if !customDictionary.contains(where: { $0.spoken == spoken }) {
+                terms.append((spoken, term))
+            }
+        }
+
+        return Array(terms.prefix(5))
     }
 
     private static func loadCustomDictionary() -> [CustomDictionaryEntry] {
@@ -1294,6 +1390,12 @@ final class AppState: ObservableObject {
     }
 
     private func transcribeMeetingChunk(_ chunkURL: URL) async throws -> String {
+        let gate = speechGate.evaluate(chunkURL)
+        logger.write("speech_gate meeting skip=\(gate.shouldSkip) reason=\(gate.reason) peak_rms=\(gate.peakRMS) peak_amp=\(gate.peakAmplitude) windows=\(gate.windows) speech_windows=\(gate.speechWindows)")
+        if gate.shouldSkip {
+            throw WalkyError.transcription("skipped \(gate.reason).")
+        }
+
         var lastError: Error?
 
         for attempt in 0..<3 {
