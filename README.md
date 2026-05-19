@@ -79,6 +79,22 @@ Supported onboarding model choices:
 
 Because this build is not Developer ID signed/notarized yet, macOS may show a Gatekeeper warning on other Macs.
 
+If macOS says Apple cannot verify the app:
+
+1. open System Settings
+2. go to Privacy & Security
+3. scroll to the security message for Walky Talky
+4. click Open Anyway
+
+For a local test Mac, you can also remove quarantine manually after installing:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Walky Talky.app"
+open "/Applications/Walky Talky.app"
+```
+
+The long-term fix is Developer ID signing and notarization.
+
 ## Build from source
 
 Clone the repo:
