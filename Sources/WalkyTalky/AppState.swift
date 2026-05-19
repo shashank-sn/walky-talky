@@ -113,6 +113,7 @@ final class AppState: ObservableObject {
     private var transcriptStore: TranscriptStore?
     private let cleanup = TranscriptCleanup()
     private let autoPasteEngine = AutoPasteEngine()
+    private let logger: WalkyLogger
     private var activeMeetingID: UUID?
     private var meetingStartedAt: Date?
     private var meetingChunkStartedAt: Date?
@@ -166,6 +167,7 @@ final class AppState: ObservableObject {
         self.paths = paths
         self.recorder = recorder ?? AudioRecorder(paths: paths)
         self.transcriber = transcriber ?? WhisperTranscriber(paths: paths)
+        self.logger = WalkyLogger(paths: paths)
         self.autoPasteEnabled = true
         UserDefaults.standard.set(true, forKey: Self.autoPasteKey)
         self.tinydiarizeEnabled = UserDefaults.standard.bool(forKey: Self.tinydiarizeKey)
@@ -253,6 +255,7 @@ final class AppState: ObservableObject {
         if let app = NSWorkspace.shared.frontmostApplication, rememberExternalApp(app) {
             pasteTargetBundleIdentifier = app.bundleIdentifier
             pasteTargetProcessIdentifier = app.processIdentifier
+            logger.write("paste_target captured pid=\(app.processIdentifier) bundle=\(app.bundleIdentifier ?? "nil") name=\(app.localizedName ?? "nil")")
             statusDetail = "paste target captured: \(app.localizedName?.lowercased() ?? "current app")."
             return
         }
@@ -260,7 +263,10 @@ final class AppState: ObservableObject {
         if let lastExternalBundleIdentifier, let lastExternalProcessIdentifier {
             pasteTargetBundleIdentifier = lastExternalBundleIdentifier
             pasteTargetProcessIdentifier = lastExternalProcessIdentifier
+            logger.write("paste_target fallback_recent pid=\(lastExternalProcessIdentifier) bundle=\(lastExternalBundleIdentifier)")
             statusDetail = "paste target captured from recent app."
+        } else {
+            logger.write("paste_target missing frontmost=\(NSWorkspace.shared.frontmostApplication?.localizedName ?? "nil")")
         }
     }
 
@@ -1163,7 +1169,6 @@ final class AppState: ObservableObject {
             copy(polishedText)
             pasteIfEnabledAfterCopy()
             recordingState = .complete
-            statusDetail = "local transcript copied."
         } catch {
             recordingState = .failed("transcription failed.")
             statusDetail = error.localizedDescription.lowercased()
@@ -1198,6 +1203,8 @@ final class AppState: ObservableObject {
         let targetPID = pasteTargetProcessIdentifier
         let ownBundleID = Bundle.main.bundleIdentifier
         let text = NSPasteboard.general.string(forType: .string) ?? ""
+        let frontmost = NSWorkspace.shared.frontmostApplication
+        logger.write("paste_start enabled=true text_length=\(text.count) target_pid=\(targetPID.map(String.init) ?? "nil") target_bundle=\(targetBundleID ?? "nil") front_pid=\(frontmost.map { String($0.processIdentifier) } ?? "nil") front_bundle=\(frontmost?.bundleIdentifier ?? "nil") ax_trusted=\(AXIsProcessTrusted())")
 
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 80_000_000)
@@ -1207,6 +1214,7 @@ final class AppState: ObservableObject {
                 targetPID: targetPID,
                 ownBundleID: ownBundleID
             )
+            logger.write("paste_outcome pasted=\(outcome.pasted) method=\(outcome.method.rawValue) detail=\(outcome.detail)")
             statusDetail = outcome.pasted
                 ? "local transcript pasted with \(outcome.method.rawValue)."
                 : "copied. \(outcome.detail)"
@@ -1244,6 +1252,7 @@ final class AppState: ObservableObject {
 
         lastExternalBundleIdentifier = app.bundleIdentifier
         lastExternalProcessIdentifier = app.processIdentifier
+        logger.write("external_app active pid=\(app.processIdentifier) bundle=\(app.bundleIdentifier ?? "nil") name=\(app.localizedName ?? "nil")")
         return true
     }
 

@@ -22,14 +22,6 @@ struct AutoPasteEngine {
         targetPID: pid_t?,
         ownBundleID: String?
     ) async -> AutoPasteOutcome {
-        guard AXIsProcessTrusted() else {
-            return AutoPasteOutcome(
-                pasted: false,
-                method: .unavailable,
-                detail: "accessibility permission is missing."
-            )
-        }
-
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return AutoPasteOutcome(
                 pasted: false,
@@ -58,7 +50,7 @@ struct AutoPasteEngine {
             target.activate(options: [.activateAllWindows])
             try? await Task.sleep(nanoseconds: 250_000_000)
 
-            if insertWithAccessibility(text, into: target.processIdentifier) {
+            if AXIsProcessTrusted(), insertWithAccessibility(text, into: target.processIdentifier) {
                 return AutoPasteOutcome(
                     pasted: true,
                     method: .accessibilityInsert,
