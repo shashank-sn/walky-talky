@@ -43,8 +43,9 @@ struct AutoPasteEngine {
             targetPID: targetPID,
             ownBundleID: ownBundleID
         )
+        let effectiveTarget = target ?? currentExternalFrontmostApplication(ownBundleID: ownBundleID)
 
-        if shouldPasteIntoCurrentFrontmost(target: target, ownBundleID: ownBundleID) {
+        if shouldPasteIntoCurrentFrontmost(target: effectiveTarget, ownBundleID: ownBundleID) {
             pasteWithBestEffortKeyboard(text: text)
             return AutoPasteOutcome(
                 pasted: true,
@@ -53,7 +54,7 @@ struct AutoPasteEngine {
             )
         }
 
-        if let target {
+        if let target = effectiveTarget {
             target.activate(options: [.activateAllWindows])
             try? await Task.sleep(nanoseconds: 250_000_000)
 
@@ -103,6 +104,16 @@ struct AutoPasteEngine {
         }
 
         return nil
+    }
+
+    private func currentExternalFrontmostApplication(ownBundleID: String?) -> NSRunningApplication? {
+        guard let frontmost = NSWorkspace.shared.frontmostApplication,
+              frontmost.bundleIdentifier != ownBundleID,
+              frontmost.activationPolicy == .regular,
+              !frontmost.isTerminated else {
+            return nil
+        }
+        return frontmost
     }
 
     private func shouldPasteIntoCurrentFrontmost(target: NSRunningApplication?, ownBundleID: String?) -> Bool {

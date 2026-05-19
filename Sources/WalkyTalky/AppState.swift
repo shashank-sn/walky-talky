@@ -127,6 +127,8 @@ final class AppState: ObservableObject {
     private var meetingIDPendingFinalization: UUID?
     private var pasteTargetBundleIdentifier: String?
     private var pasteTargetProcessIdentifier: pid_t?
+    private var lastExternalBundleIdentifier: String?
+    private var lastExternalProcessIdentifier: pid_t?
     private let meetingChunkSeconds: TimeInterval = 60
     private static let autoPasteKey = "walkyTalky.autoPasteEnabled"
     private static let intelligencePresetKey = "walkyTalky.intelligencePreset"
@@ -198,6 +200,10 @@ final class AppState: ObservableObject {
                 ?? self.transcriber.selectedModelName
             localLLMStatus = localLanguageModel.status().title
             ensureDefaultDictionaryEntries()
+            if let app = NSWorkspace.shared.frontmostApplication {
+                rememberExternalApp(app)
+            }
+            observeExternalAppActivations()
         } catch {
             recordingState = .failed("could not prepare local storage.")
             statusDetail = error.localizedDescription.lowercased()
@@ -244,11 +250,17 @@ final class AppState: ObservableObject {
     }
 
     func capturePasteTarget() {
-        guard let app = NSWorkspace.shared.frontmostApplication else { return }
-        let ownBundleID = Bundle.main.bundleIdentifier
-        if app.bundleIdentifier != ownBundleID {
+        if let app = NSWorkspace.shared.frontmostApplication, rememberExternalApp(app) {
             pasteTargetBundleIdentifier = app.bundleIdentifier
             pasteTargetProcessIdentifier = app.processIdentifier
+            statusDetail = "paste target captured: \(app.localizedName?.lowercased() ?? "current app")."
+            return
+        }
+
+        if let lastExternalBundleIdentifier, let lastExternalProcessIdentifier {
+            pasteTargetBundleIdentifier = lastExternalBundleIdentifier
+            pasteTargetProcessIdentifier = lastExternalProcessIdentifier
+            statusDetail = "paste target captured from recent app."
         }
     }
 
@@ -1205,6 +1217,34 @@ final class AppState: ObservableObject {
         guard !AXIsProcessTrusted() else { return }
         let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
         AXIsProcessTrustedWithOptions(options)
+    }
+
+    private func observeExternalAppActivations() {
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else {
+                return
+            }
+            Task { @MainActor in
+                _ = self?.rememberExternalApp(app)
+            }
+        }
+    }
+
+    @discardableResult
+    private func rememberExternalApp(_ app: NSRunningApplication) -> Bool {
+        guard app.bundleIdentifier != Bundle.main.bundleIdentifier,
+              app.activationPolicy == .regular,
+              !app.isTerminated else {
+            return false
+        }
+
+        lastExternalBundleIdentifier = app.bundleIdentifier
+        lastExternalProcessIdentifier = app.processIdentifier
+        return true
     }
 
     private static func loadCustomDictionary() -> [CustomDictionaryEntry] {
