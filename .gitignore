@@ -1,0 +1,34 @@
+.DS_Store
+
+# swift/build outputs
+.build/
+.swiftpm/
+
+# packaged app artifacts
+dist/
+*.app/
+*.dmg
+*.zip
+
+# local whisper.cpp checkout/build/runtime artifacts
+vendor/
+models/
+*.bin
+*.gguf
+*.dylib
+
+# local runtime/log/database artifacts
+*.sqlite
+*.sqlite3
+*.log
+recordings/
+exports/
+logs/
+
+# xcode/user state
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+
+# local agent/project planning
+AGENTS.md
+WALKY_TALKY_PLAN.md

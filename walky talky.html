@@ -1,0 +1,690 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Walky Talky - Popover Design Variations</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0d0e10;
+      --ink: #f6f7f8;
+      --muted: #a4a7ae;
+      --line: rgba(255,255,255,.12);
+      --blue: #0a84ff;
+      --green: #32d74b;
+      --orange: #ff9f0a;
+      --red: #ff453a;
+      --panel: #1b1c1f;
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 15% 10%, rgba(10,132,255,.22), transparent 26rem),
+        radial-gradient(circle at 84% 0%, rgba(255,159,10,.10), transparent 24rem),
+        linear-gradient(180deg, #101115 0%, #08090b 100%);
+    }
+
+    .board {
+      width: min(1540px, calc(100vw - 48px));
+      margin: 0 auto;
+      padding: 42px 0 64px;
+    }
+
+    .board-header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 24px;
+      align-items: end;
+      margin-bottom: 28px;
+      border-bottom: 1px solid rgba(255,255,255,.10);
+      padding-bottom: 24px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 34px;
+      line-height: 1;
+      letter-spacing: 0;
+      font-weight: 760;
+    }
+
+    .brief {
+      margin: 12px 0 0;
+      max-width: 760px;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 15px;
+    }
+
+    .source-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 12px;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 999px;
+      color: #d8d9dd;
+      background: rgba(255,255,255,.05);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(360px, 1fr));
+      gap: 26px;
+      align-items: start;
+    }
+
+    .concept {
+      display: grid;
+      gap: 12px;
+    }
+
+    .caption {
+      display: grid;
+      gap: 4px;
+      min-height: 70px;
+    }
+
+    .caption strong {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: #f3f4f6;
+    }
+
+    .caption span {
+      color: #9ca0a9;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .popover {
+      position: relative;
+      width: 100%;
+      min-height: 560px;
+      overflow: hidden;
+      border-radius: 30px;
+      padding: 28px;
+      isolation: isolate;
+    }
+
+    .popover::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    .top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 26px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 13px;
+      min-width: 0;
+    }
+
+    .logo {
+      width: 44px;
+      height: 22px;
+      flex: 0 0 auto;
+    }
+
+    .logo path {
+      stroke: currentColor;
+      stroke-width: 9;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+    }
+
+    .title {
+      font-size: 24px;
+      font-weight: 760;
+      letter-spacing: 0;
+      white-space: nowrap;
+    }
+
+    .power {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: 999px;
+      color: currentColor;
+      background: transparent;
+      opacity: .72;
+    }
+
+    .power svg,
+    .mini-button svg,
+    .icon-button svg {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .mode-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .label {
+      font-size: 20px;
+      font-weight: 650;
+    }
+
+    .segmented {
+      display: inline-grid;
+      grid-template-columns: 1fr 1fr;
+      padding: 4px;
+      border-radius: 13px;
+      gap: 3px;
+    }
+
+    .segmented span {
+      padding: 8px 16px;
+      border-radius: 10px;
+      font-size: 18px;
+      font-weight: 680;
+      color: rgba(255,255,255,.78);
+    }
+
+    .segmented .active { color: #fff; }
+
+    .primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      border: 0;
+      border-radius: 12px;
+      padding: 12px 18px;
+      font-size: 18px;
+      font-weight: 760;
+      color: #fff;
+      background: var(--blue);
+      box-shadow: inset 0 1px rgba(255,255,255,.22);
+    }
+
+    .record-dot {
+      width: 18px;
+      height: 18px;
+      border: 3px solid currentColor;
+      border-radius: 999px;
+    }
+
+    .section {
+      margin-top: 30px;
+    }
+
+    .section-title {
+      margin: 0 0 13px;
+      font-size: 18px;
+      font-weight: 760;
+    }
+
+    .empty {
+      color: rgba(255,255,255,.55);
+      font-size: 16px;
+      font-weight: 520;
+    }
+
+    .item {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 14px;
+      align-items: center;
+      padding: 13px 0;
+      border-top: 1px solid rgba(255,255,255,.09);
+    }
+
+    .item:first-of-type { border-top: 0; }
+
+    .time {
+      color: rgba(255,255,255,.52);
+      font-size: 12px;
+      font-weight: 680;
+      margin-bottom: 4px;
+    }
+
+    .line {
+      font-size: 15px;
+      line-height: 1.35;
+      color: rgba(255,255,255,.86);
+    }
+
+    .actions {
+      display: inline-flex;
+      gap: 6px;
+    }
+
+    .icon-button {
+      display: grid;
+      place-items: center;
+      width: 31px;
+      height: 31px;
+      border: 0;
+      border-radius: 9px;
+      color: rgba(255,255,255,.72);
+      background: rgba(255,255,255,.06);
+    }
+
+    .kbd {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 11px;
+      line-height: 1;
+      border-radius: 6px;
+      padding: 5px 7px;
+      border: 1px solid rgba(255,255,255,.16);
+      color: rgba(255,255,255,.72);
+      background: rgba(255,255,255,.05);
+    }
+
+    .tiny-meta {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-top: 16px;
+      color: rgba(255,255,255,.48);
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    /* 1. Liquid Glass - Reminders dark */
+    .v1 {
+      color: #f7f7f8;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.14), rgba(255,255,255,.035)),
+        rgba(22,23,26,.66);
+      border: 1px solid rgba(255,255,255,.22);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.28),
+        inset 0 -1px 0 rgba(255,255,255,.06),
+        0 28px 70px rgba(0,0,0,.46);
+      backdrop-filter: blur(28px) saturate(1.45);
+    }
+
+    .v1::before {
+      background:
+        radial-gradient(circle at 72% 18%, rgba(10,132,255,.20), transparent 13rem),
+        radial-gradient(circle at 18% 72%, rgba(50,215,75,.14), transparent 15rem);
+    }
+
+    .v1 .segmented { background: rgba(255,255,255,.10); box-shadow: inset 0 1px rgba(255,255,255,.10); }
+    .v1 .segmented .active { background: rgba(10,132,255,.92); box-shadow: 0 10px 28px rgba(10,132,255,.22); }
+    .v1 .section-title::before {
+      content: "";
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      margin-right: 9px;
+      border-radius: 999px;
+      background: var(--orange);
+      box-shadow: 0 0 0 5px rgba(255,159,10,.12);
+    }
+    .v1 .section:nth-of-type(2) .section-title::before { background: var(--green); box-shadow: 0 0 0 5px rgba(50,215,75,.11); }
+
+    /* 2. Liquid Glass - white Reminders sheet */
+    .v2 {
+      color: #111316;
+      background:
+        linear-gradient(145deg, rgba(255,255,255,.86), rgba(255,255,255,.58)),
+        rgba(242,245,249,.68);
+      border: 1px solid rgba(255,255,255,.82);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.92),
+        inset 0 -1px 0 rgba(17,19,22,.06),
+        0 26px 64px rgba(9,12,18,.24);
+      backdrop-filter: blur(32px) saturate(1.35);
+    }
+
+    .v2::before {
+      background:
+        linear-gradient(90deg, rgba(10,132,255,.13), transparent 42%),
+        radial-gradient(circle at 80% 20%, rgba(255,159,10,.16), transparent 15rem);
+    }
+
+    .v2 .muted,
+    .v2 .empty,
+    .v2 .time,
+    .v2 .tiny-meta { color: rgba(17,19,22,.52); }
+    .v2 .line { color: rgba(17,19,22,.80); }
+    .v2 .power { background: rgba(17,19,22,.055); }
+    .v2 .segmented { background: rgba(17,19,22,.08); }
+    .v2 .segmented span { color: rgba(17,19,22,.56); }
+    .v2 .segmented .active { color: #fff; background: #0a84ff; }
+    .v2 .item { border-top-color: rgba(17,19,22,.08); }
+    .v2 .icon-button { color: rgba(17,19,22,.68); background: rgba(17,19,22,.055); }
+    .v2 .kbd { color: rgba(17,19,22,.62); background: rgba(255,255,255,.48); border-color: rgba(17,19,22,.12); }
+
+    /* 3. Native Reminders list */
+    .v3 {
+      color: #f4f4f5;
+      background: #1d1d1f;
+      border: 1px solid rgba(255,255,255,.15);
+      box-shadow: 0 22px 46px rgba(0,0,0,.34);
+    }
+
+    .v3 .top { padding-bottom: 18px; border-bottom: 1px solid rgba(255,255,255,.10); }
+    .v3 .logo { width: 36px; }
+    .v3 .segmented {
+      width: 100%;
+      background: #2c2c2e;
+      border-radius: 11px;
+    }
+    .v3 .segmented span { text-align: center; font-size: 17px; padding: 8px 12px; }
+    .v3 .segmented .active { background: #3a3a3c; }
+    .v3 .primary {
+      width: 100%;
+      justify-content: center;
+      background: #2f81f7;
+      border-radius: 11px;
+    }
+    .v3 .item {
+      padding: 14px 0 14px 32px;
+      position: relative;
+    }
+    .v3 .item::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 18px;
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      border: 2px solid #0a84ff;
+    }
+
+    /* 4. Coss primitive dark */
+    .v4 {
+      color: #fafafa;
+      background: #0f0f10;
+      border: 1px solid #27272a;
+      border-radius: 18px;
+      box-shadow: 0 18px 44px rgba(0,0,0,.34);
+    }
+
+    .v4 .top { margin-bottom: 20px; }
+    .v4 .title { font-size: 21px; }
+    .v4 .mode-row {
+      display: grid;
+      grid-template-columns: 70px 1fr;
+      align-items: center;
+    }
+    .v4 .segmented {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 8px;
+      padding: 3px;
+    }
+    .v4 .segmented span {
+      border-radius: 6px;
+      font-size: 15px;
+      padding: 8px 10px;
+      text-align: center;
+      color: #a1a1aa;
+    }
+    .v4 .segmented .active { background: #fafafa; color: #09090b; }
+    .v4 .primary {
+      width: 100%;
+      justify-content: center;
+      border-radius: 8px;
+      background: #fafafa;
+      color: #09090b;
+    }
+    .v4 .section-title {
+      font-size: 13px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: #a1a1aa;
+    }
+    .v4 .item {
+      margin: 0 -10px;
+      padding: 12px 10px;
+      border-color: #27272a;
+    }
+    .v4 .icon-button { border-radius: 7px; background: #18181b; color: #d4d4d8; border: 1px solid #27272a; }
+
+    /* 5. Coss particles light */
+    .v5 {
+      color: #171717;
+      background: #fafafa;
+      border: 1px solid #e4e4e7;
+      border-radius: 18px;
+      box-shadow: 0 18px 44px rgba(24,24,27,.12);
+    }
+
+    .v5 .top {
+      align-items: start;
+      border-bottom: 1px solid #e4e4e7;
+      padding-bottom: 18px;
+      margin-bottom: 18px;
+    }
+    .v5 .title { font-size: 22px; color: #18181b; }
+    .v5 .power { border: 1px solid #e4e4e7; color: #52525b; }
+    .v5 .mode-row {
+      border: 1px solid #e4e4e7;
+      border-radius: 12px;
+      padding: 8px;
+      background: #fff;
+    }
+    .v5 .label { font-size: 15px; color: #52525b; }
+    .v5 .segmented { margin-left: auto; background: #f4f4f5; border-radius: 9px; }
+    .v5 .segmented span { color: #71717a; font-size: 14px; padding: 7px 11px; }
+    .v5 .segmented .active { background: #18181b; color: #fff; }
+    .v5 .primary {
+      background: #18181b;
+      color: #fff;
+      border-radius: 10px;
+      font-size: 16px;
+    }
+    .v5 .empty,
+    .v5 .time,
+    .v5 .tiny-meta { color: #71717a; }
+    .v5 .line { color: #27272a; }
+    .v5 .item { border-color: #ececef; }
+    .v5 .icon-button { color: #52525b; background: #f4f4f5; border: 1px solid #e4e4e7; }
+    .v5 .kbd { color: #52525b; background: #fff; border-color: #d4d4d8; }
+
+    /* 6. Focus console */
+    .v6 {
+      color: #eff0ef;
+      background:
+        linear-gradient(180deg, rgba(27,28,30,.96), rgba(16,17,18,.98)),
+        #111214;
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 12px;
+      box-shadow: 0 22px 50px rgba(0,0,0,.48);
+    }
+
+    .v6::before {
+      background-image:
+        linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+      background-size: 28px 28px;
+      opacity: .8;
+    }
+    .v6 .title { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 18px; text-transform: uppercase; }
+    .v6 .logo { color: #32d74b; }
+    .v6 .mode-row {
+      border-top: 1px solid rgba(255,255,255,.12);
+      border-bottom: 1px solid rgba(255,255,255,.12);
+      padding: 13px 0;
+    }
+    .v6 .label { color: #9ca3af; font-size: 14px; text-transform: uppercase; letter-spacing: .08em; }
+    .v6 .segmented { background: transparent; border: 1px solid rgba(255,255,255,.14); border-radius: 6px; }
+    .v6 .segmented span { border-radius: 4px; font-size: 14px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .v6 .segmented .active { background: #32d74b; color: #071108; }
+    .v6 .primary {
+      border-radius: 6px;
+      background: transparent;
+      border: 1px solid #32d74b;
+      color: #32d74b;
+      box-shadow: none;
+    }
+    .v6 .section-title {
+      color: #d1d5db;
+      font-size: 13px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      text-transform: uppercase;
+      letter-spacing: .09em;
+    }
+    .v6 .item { border-color: rgba(255,255,255,.11); }
+    .v6 .icon-button { border-radius: 5px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.035); }
+
+    @media (max-width: 1220px) {
+      .grid { grid-template-columns: repeat(2, minmax(340px, 1fr)); }
+    }
+
+    @media (max-width: 760px) {
+      .board { width: min(100% - 24px, 440px); padding-top: 24px; }
+      .board-header { grid-template-columns: 1fr; }
+      .grid { grid-template-columns: 1fr; }
+      .popover { min-height: 520px; padding: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="board">
+    <header class="board-header">
+      <div>
+        <h1>Walky Talky popover directions</h1>
+        <p class="brief">Six directions for the same functional surface: mode switch, meeting toggle, recent dictations, and meeting transcripts. Variants 1 and 2 use Apple Liquid Glass/Reminders cues. Variants 4 and 5 use coss-style primitives, command surfaces, badges, and clean component framing.</p>
+      </div>
+      <div class="source-pill">walky talky.html</div>
+    </header>
+
+    <section class="grid">
+      <article class="concept">
+        <div class="caption">
+          <strong>01 Liquid Glass Dark</strong>
+          <span>Best if the menu bar popover should feel native, soft, and current without becoming busy.</span>
+        </div>
+        <div class="popover v1">
+          <div class="top">
+            <div class="brand"><svg class="logo" viewBox="0 0 225 225"><path d="M4 114h28c12 0 11 42 25 42s12-80 36-80 15 123 43 123 20-142 47-142 15 92 42 92 13-47 36-47 16 28 35 28h25"/></svg><div class="title">Walky Talky</div></div>
+            <button class="power"><svg viewBox="0 0 24 24"><path d="M12 2v10"/><path d="M18.4 6.6a8 8 0 1 1-12.8 0"/></svg></button>
+          </div>
+          <div class="mode-row"><div class="label">Mode</div><div class="segmented"><span>Dictation</span><span class="active">Meeting</span></div></div>
+          <button class="primary"><span class="record-dot"></span>Start meeting</button>
+          <div class="section"><h2 class="section-title">Recent dictations</h2><div class="item"><div><div class="time">10:42 PM</div><div class="line">Can you clean this up and keep the tone direct?</div></div><div class="actions"><button class="icon-button"><svg viewBox="0 0 24 24"><path d="M8 8h11v11H8z"/><path d="M5 15H4a1 1 0 0 1-1-1V4h10a1 1 0 0 1 1 1v1"/></svg></button><button class="icon-button"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div></div><div class="item"><div><div class="time">10:31 PM</div><div class="line">Move the meeting transcript into a markdown file.</div></div><div class="actions"><button class="icon-button"><svg viewBox="0 0 24 24"><path d="M8 8h11v11H8z"/><path d="M5 15H4a1 1 0 0 1-1-1V4h10a1 1 0 0 1 1 1v1"/></svg></button><button class="icon-button"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div></div></div>
+          <div class="section"><h2 class="section-title">Meetings</h2><div class="item"><div><div class="time">Today, 9:48 PM</div><div class="line">Product cleanup notes.md</div></div><div class="actions"><button class="icon-button"><svg viewBox="0 0 24 24"><path d="M8 8h11v11H8z"/><path d="M5 15H4a1 1 0 0 1-1-1V4h10a1 1 0 0 1 1 1v1"/></svg></button><button class="icon-button"><svg viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M5 20V6h6l2 2h6v12"/></svg></button><button class="icon-button"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div></div></div>
+          <div class="tiny-meta"><span class="kbd">control</span><span class="kbd">option</span><span class="kbd">M</span></div>
+        </div>
+      </article>
+
+      <article class="concept">
+        <div class="caption">
+          <strong>02 Liquid Glass Light</strong>
+          <span>Reminders-inspired light sheet with high opacity for readability and clear control/content hierarchy.</span>
+        </div>
+        <div class="popover v2">
+          <div class="top">
+            <div class="brand"><svg class="logo" viewBox="0 0 225 225"><path d="M4 114h28c12 0 11 42 25 42s12-80 36-80 15 123 43 123 20-142 47-142 15 92 42 92 13-47 36-47 16 28 35 28h25"/></svg><div class="title">Walky Talky</div></div>
+            <button class="power"><svg viewBox="0 0 24 24"><path d="M12 2v10"/><path d="M18.4 6.6a8 8 0 1 1-12.8 0"/></svg></button>
+          </div>
+          <div class="mode-row"><div class="label">Mode</div><div class="segmented"><span class="active">Dictation</span><span>Meeting</span></div></div>
+          <button class="primary"><span class="record-dot"></span>Start dictation</button>
+          <div class="section"><h2 class="section-title">Recent dictations</h2><div class="item"><div><div class="time">11:02 PM</div><div class="line">The app should feel finished, not like a debug utility.</div></div><div class="actions"><button class="icon-button"><svg viewBox="0 0 24 24"><path d="M8 8h11v11H8z"/><path d="M5 15H4a1 1 0 0 1-1-1V4h10a1 1 0 0 1 1 1v1"/></svg></button><button class="icon-button"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div></div><div class="item"><div><div class="time">10:57 PM</div><div class="line">Use a cleaner logo and keep it consistent in the menu bar.</div></div><div class="actions"><button class="icon-button"><svg viewBox="0 0 24 24"><path d="M8 8h11v11H8z"/><path d="M5 15H4a1 1 0 0 1-1-1V4h10a1 1 0 0 1 1 1v1"/></svg></button><button class="icon-button"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div></div></div>
+          <div class="section"><h2 class="section-title">Meetings</h2><div class="empty">No meetings yet</div></div>
+          <div class="tiny-meta"><span class="kbd">control</span><span class="kbd">option</span><span class="kbd">space</span></div>
+        </div>
+      </article>
+
+      <article class="concept">
+        <div class="caption">
+          <strong>03 Reminders Native</strong>
+          <span>Most conservative native-mac option: dark, simple, list-first, low risk for the production SwiftUI build.</span>
+        </div>
+        <div class="popover v3">
+          <div class="top">
+            <div class="brand"><svg class="logo" viewBox="0 0 225 225"><path d="M4 114h28c12 0 11 42 25 42s12-80 36-80 15 123 43 123 20-142 47-142 15 92 42 92 13-47 36-47 16 28 35 28h25"/></svg><div class="title">Walky Talky</div></div>
+            <button class="power"><svg viewBox="0 0 24 24"><path d="M12 2v10"/><path d="M18.4 6.6a8 8 0 1 1-12.8 0"/></svg></button>
+          </div>
+          <div class="mode-row"><div class="label">Mode</div><div class="segmented"><span>Dictation</span><span class="active">Meeting</span></div></div>
+          <button class="primary"><span class="record-dot"></span>Start meeting</button>
+          <div class="section"><h2 class="section-title">Recent dictations</h2><div class="item"><div><div class="time">10:42 PM</div><div class="line">Auto-format this text after transcription.</div></div><div class="actions"><button class="icon-button"><svg viewBox="0 0 24 24"><path d="M8 8h11v11H8z"/><path d="M5 15H4a1 1 0 0 1-1-1V4h10a1 1 0 0 1 1 1v1"/></svg></button><button class="icon-button"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div></div></div>
+          <div class="section"><h2 class="section-title">Meetings</h2><div class="item"><div><div class="time">Today</div><div class="line">Cleanup plan review.md</div></div><div class="actions"><button class="icon-button"><svg viewBox="0 0 24 24"><path d="M8 8h11v11H8z"/><path d="M5 15H4a1 1 0 0 1-1-1V4h10a1 1 0 0 1 1 1v1"/></svg></button><button class="icon-button"><svg viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M5 20V6h6l2 2h6v12"/></svg></button><button class="icon-button"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div></div></div>
+        </div>
+      </article>
+
+      <article class="concept">
+        <div class="caption">
+          <strong>04 Coss Primitive Dark</strong>
+          <span>Component-system feel: sharp primitives, quiet borders, low radius, strong action semantics.</span>
+        </div>
+        <div class="popover v4">
+          <div class="top">
+            <div class="brand"><svg class="logo" viewBox="0 0 225 225"><path d="M4 114h28c12 0 11 42 25 42s12-80 36-80 15 123 43 123 20-142 47-142 15 92 42 92 13-47 36-47 16 28 35 28h25"/></svg><div class="title">Walky Talky</div></div>
+            <button class="power"><svg viewBox="0 0 24 24"><path d="M12 2v10"/><path d="M18.4 6.6a8 8 0 1 1-12.8 0"/></svg></button>
+          </div>
+          <div class="mode-row"><div class="label">Mode</div><div class="segmented"><span>Dictation</span><span class="active">Meeting</span></div></div>
+          <button class="primary"><span class="record-dot"></span>Start meeting</button>
+          <div class="section"><h2 class="section-title">Recent dictations</h2><div class="item"><div><div class="time">10:42 PM</div><div class="line">Keep the transcript short and fix the punctuation.</div></div><div class="actions"><button class="icon-button"><svg viewBox="0 0 24 24"><path d="M8 8h11v11H8z"/><path d="M5 15H4a1 1 0 0 1-1-1V4h10a1 1 0 0 1 1 1v1"/></svg></button><button class="icon-button"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div></div></div>
+          <div class="section"><h2 class="section-title">Meetings</h2><div class="item"><div><div class="time">2026-05-18</div><div class="line">Product direction.md</div></div><div class="actions"><button class="icon-button"><svg viewBox="0 0 24 24"><path d="M8 8h11v11H8z"/><path d="M5 15H4a1 1 0 0 1-1-1V4h10a1 1 0 0 1 1 1v1"/></svg></button><button class="icon-button"><svg viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M5 20V6h6l2 2h6v12"/></svg></button><button class="icon-button"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div></div></div>
+          <div class="tiny-meta"><span class="kbd">ctrl</span><span class="kbd">opt</span><span class="kbd">m</span></div>
+        </div>
+      </article>
+
+      <article class="concept">
+        <div class="caption">
+          <strong>05 Coss Particles Light</strong>
+          <span>Docs/component-library polish: clear field groups, kbd badges, and practical controls.</span>
+        </div>
+        <div class="popover v5">
+          <div class="top">
+            <div class="brand"><svg class="logo" viewBox="0 0 225 225"><path d="M4 114h28c12 0 11 42 25 42s12-80 36-80 15 123 43 123 20-142 47-142 15 92 42 92 13-47 36-47 16 28 35 28h25"/></svg><div class="title">Walky Talky</div></div>
+            <button class="power"><svg viewBox="0 0 24 24"><path d="M12 2v10"/><path d="M18.4 6.6a8 8 0 1 1-12.8 0"/></svg></button>
+          </div>
+          <div class="mode-row"><div class="label">Mode</div><div class="segmented"><span class="active">Dictation</span><span>Meeting</span></div></div>
+          <button class="primary"><span class="record-dot"></span>Start dictation</button>
+          <div class="section"><h2 class="section-title">Recent dictations</h2><div class="item"><div><div class="time">10:58 PM</div><div class="line">Change the design but do not add more settings.</div></div><div class="actions"><button class="icon-button"><svg viewBox="0 0 24 24"><path d="M8 8h11v11H8z"/><path d="M5 15H4a1 1 0 0 1-1-1V4h10a1 1 0 0 1 1 1v1"/></svg></button><button class="icon-button"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div></div></div>
+          <div class="section"><h2 class="section-title">Meetings</h2><div class="empty">No meetings yet</div></div>
+          <div class="tiny-meta"><span class="kbd">control</span><span class="kbd">option</span><span class="kbd">space</span></div>
+        </div>
+      </article>
+
+      <article class="concept">
+        <div class="caption">
+          <strong>06 Focus Console</strong>
+          <span>Less Apple, more tool: compact, crisp, and better for power users who live in shortcuts.</span>
+        </div>
+        <div class="popover v6">
+          <div class="top">
+            <div class="brand"><svg class="logo" viewBox="0 0 225 225"><path d="M4 114h28c12 0 11 42 25 42s12-80 36-80 15 123 43 123 20-142 47-142 15 92 42 92 13-47 36-47 16 28 35 28h25"/></svg><div class="title">Walky Talky</div></div>
+            <button class="power"><svg viewBox="0 0 24 24"><path d="M12 2v10"/><path d="M18.4 6.6a8 8 0 1 1-12.8 0"/></svg></button>
+          </div>
+          <div class="mode-row"><div class="label">Mode</div><div class="segmented"><span>Dictation</span><span class="active">Meeting</span></div></div>
+          <button class="primary"><span class="record-dot"></span>Start meeting</button>
+          <div class="section"><h2 class="section-title">Recent dictations</h2><div class="item"><div><div class="time">22:42</div><div class="line">Ship the smallest interface that actually works.</div></div><div class="actions"><button class="icon-button"><svg viewBox="0 0 24 24"><path d="M8 8h11v11H8z"/><path d="M5 15H4a1 1 0 0 1-1-1V4h10a1 1 0 0 1 1 1v1"/></svg></button><button class="icon-button"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div></div></div>
+          <div class="section"><h2 class="section-title">Meetings</h2><div class="item"><div><div class="time">22:11</div><div class="line">Operator review.md</div></div><div class="actions"><button class="icon-button"><svg viewBox="0 0 24 24"><path d="M8 8h11v11H8z"/><path d="M5 15H4a1 1 0 0 1-1-1V4h10a1 1 0 0 1 1 1v1"/></svg></button><button class="icon-button"><svg viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M5 20V6h6l2 2h6v12"/></svg></button><button class="icon-button"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div></div></div>
+          <div class="tiny-meta"><span class="kbd">CTRL</span><span class="kbd">OPT</span><span class="kbd">M</span></div>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>
