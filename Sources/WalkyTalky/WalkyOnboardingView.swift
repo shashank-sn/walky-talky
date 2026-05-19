@@ -110,9 +110,12 @@ struct WalkyOnboardingView: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            Image(nsImage: WalkyIconFactory.popoverIcon())
+            Image(nsImage: WalkyIconFactory.menuBarIcon())
                 .resizable()
-                .frame(width: 44, height: 44)
+                .scaledToFit()
+                .frame(width: 28, height: 28)
+                .foregroundStyle(theme.text)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
                 Text("walky talky")
                     .font(.walky(size: 24, weight: .semibold)).walkyTracking(24)
