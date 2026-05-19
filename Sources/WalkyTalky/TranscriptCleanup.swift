@@ -1,15 +1,85 @@
 import Foundation
 
 struct TranscriptCleanup {
-    func polish(_ text: String, dictionary: [CustomDictionaryEntry] = []) -> String {
+    enum Style: String, CaseIterable, Identifiable {
+        case formal
+        case casual
+        case verbatim
+
+        var id: String { rawValue }
+
+        var detail: String {
+            switch self {
+            case .formal:
+                "clean punctuation with normal sentence capitalization."
+            case .casual:
+                "relaxed cleanup with everything lowercase."
+            case .verbatim:
+                "keeps more spoken wording for faithful voice notes."
+            }
+        }
+    }
+
+    func polish(
+        _ text: String,
+        dictionary: [CustomDictionaryEntry] = [],
+        style: Style = .formal
+    ) -> String {
         var result = text.trimmingCharacters(in: .whitespacesAndNewlines)
         result = result.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
         result = replaceSpokenPunctuation(in: result)
-        result = removeConservativeFillers(in: result)
+        if style != .verbatim {
+            result = removeConservativeFillers(in: result)
+        }
         result = normalizePunctuationSpacing(result)
-        result = paragraphize(result)
+        if style != .verbatim {
+            result = paragraphize(result)
+        }
         result = applyDictionary(dictionary, to: result)
-        return result.lowercased()
+
+        switch style {
+        case .casual:
+            return result.lowercased()
+        case .formal:
+            return formalize(result)
+        case .verbatim:
+            return normalizeStandaloneI(result)
+        }
+    }
+
+    private func formalize(_ text: String) -> String {
+        capitalizeSentenceStarts(normalizeStandaloneI(text))
+    }
+
+    private func normalizeStandaloneI(_ text: String) -> String {
+        text.replacingOccurrences(
+            of: #"(?i)\bi\b"#,
+            with: "I",
+            options: .regularExpression
+        )
+    }
+
+    private func capitalizeSentenceStarts(_ text: String) -> String {
+        var result = ""
+        var shouldCapitalize = true
+        let sentenceTerminators: Set<Character> = [".", "?", "!", "\n"]
+
+        for character in text {
+            if shouldCapitalize, character.isLetter {
+                result.append(String(character).uppercased())
+                shouldCapitalize = false
+            } else {
+                result.append(character)
+            }
+
+            if sentenceTerminators.contains(character) {
+                shouldCapitalize = true
+            } else if !character.isWhitespace {
+                shouldCapitalize = false
+            }
+        }
+
+        return result
     }
 
     private func applyDictionary(_ dictionary: [CustomDictionaryEntry], to text: String) -> String {

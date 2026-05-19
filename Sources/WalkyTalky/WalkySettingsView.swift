@@ -130,6 +130,7 @@ struct WalkySettingsView: View {
             Divider()
 
             shortcutSection
+            transcriptStyleSection
 
             Spacer()
         }
@@ -186,6 +187,27 @@ struct WalkySettingsView: View {
         .contentShape(Rectangle())
         .onTapGesture(count: 2) {
             editingShortcut = target
+        }
+    }
+
+    private var transcriptStyleSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("transcript style")
+                .font(.walky(.subheadline, weight: .semibold)).tracking(0.15)
+
+            Picker("transcript style", selection: Binding(
+                get: { state.transcriptStyle },
+                set: { state.selectTranscriptStyle($0) }
+            )) {
+                ForEach(TranscriptCleanup.Style.allCases) { style in
+                    Text(style.rawValue).tag(style)
+                }
+            }
+            .labelsHidden()
+
+            Text(state.transcriptStyle.detail)
+                .font(.walky(.caption)).tracking(0.12)
+                .foregroundStyle(.secondary)
         }
     }
 

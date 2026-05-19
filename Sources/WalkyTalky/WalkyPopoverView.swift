@@ -100,26 +100,29 @@ struct WalkyPopoverView: View {
                     .frame(height: 1)
             }
 
-            VStack(spacing: 12) {
-                shortcutRow(
-                    title: "hold to dictate",
-                    subtitle: "records while both modifier keys are held.",
-                    binding: state.shortcutConfiguration.hold,
-                    target: .hold
-                )
-                shortcutRow(
-                    title: "latch dictation",
-                    subtitle: "starts or stops hands-free dictation.",
-                    binding: state.shortcutConfiguration.latch,
-                    target: .latch
-                )
-                shortcutRow(
-                    title: "meeting mode",
-                    subtitle: "starts or stops meeting recording.",
-                    binding: state.shortcutConfiguration.meeting,
-                    target: .meeting
-                )
-                appearanceRow
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 12) {
+                    shortcutRow(
+                        title: "hold to dictate",
+                        subtitle: "records while both modifier keys are held.",
+                        binding: state.shortcutConfiguration.hold,
+                        target: .hold
+                    )
+                    shortcutRow(
+                        title: "latch dictation",
+                        subtitle: "starts or stops hands-free dictation.",
+                        binding: state.shortcutConfiguration.latch,
+                        target: .latch
+                    )
+                    shortcutRow(
+                        title: "meeting mode",
+                        subtitle: "starts or stops meeting recording.",
+                        binding: state.shortcutConfiguration.meeting,
+                        target: .meeting
+                    )
+                    appearanceRow
+                    transcriptStyleRow
+                }
             }
 
             Spacer()
@@ -637,6 +640,55 @@ struct WalkyPopoverView: View {
                 .padding(.vertical, 7)
                 .background(
                     state.appearanceMode == mode ? theme.themeSelectedBackground : Color.clear,
+                    in: RoundedRectangle(cornerRadius: 6)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var transcriptStyleRow: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("transcript style")
+                    .font(.walky(size: 14, weight: .semibold)).walkyTracking(14)
+                    .foregroundStyle(theme.text)
+                Text(state.transcriptStyle.detail)
+                    .font(.walky(size: 12)).walkyTracking(12)
+                    .foregroundStyle(theme.secondary)
+                    .lineLimit(2)
+            }
+
+            HStack(spacing: 3) {
+                ForEach(TranscriptCleanup.Style.allCases) { style in
+                    transcriptStyleButton(style)
+                }
+            }
+            .padding(3)
+            .background(theme.control, in: RoundedRectangle(cornerRadius: 8))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(theme.line, lineWidth: 1)
+            }
+        }
+        .padding(13)
+        .background(theme.settingBackground, in: RoundedRectangle(cornerRadius: 10))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(theme.line, lineWidth: 1)
+        }
+    }
+
+    private func transcriptStyleButton(_ style: TranscriptCleanup.Style) -> some View {
+        Button {
+            state.selectTranscriptStyle(style)
+        } label: {
+            Text(style.rawValue)
+                .font(.walky(size: 12, weight: .semibold)).walkyTracking(12)
+                .foregroundStyle(state.transcriptStyle == style ? theme.themeSelectedText : theme.secondary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 7)
+                .background(
+                    state.transcriptStyle == style ? theme.themeSelectedBackground : Color.clear,
                     in: RoundedRectangle(cornerRadius: 6)
                 )
         }

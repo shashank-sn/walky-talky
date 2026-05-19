@@ -78,6 +78,11 @@ final class AppState: ObservableObject {
             UserDefaults.standard.set(intelligencePreset.rawValue, forKey: Self.intelligencePresetKey)
         }
     }
+    @Published var transcriptStyle: TranscriptCleanup.Style {
+        didSet {
+            UserDefaults.standard.set(transcriptStyle.rawValue, forKey: Self.transcriptStyleKey)
+        }
+    }
     @Published var autoPasteEnabled: Bool {
         didSet {
             UserDefaults.standard.set(autoPasteEnabled, forKey: Self.autoPasteKey)
@@ -124,6 +129,7 @@ final class AppState: ObservableObject {
     private let meetingChunkSeconds: TimeInterval = 60
     private static let autoPasteKey = "walkyTalky.autoPasteEnabled"
     private static let intelligencePresetKey = "walkyTalky.intelligencePreset"
+    private static let transcriptStyleKey = "walkyTalky.transcriptStyle"
     private static let shortcutPresetKey = "walkyTalky.shortcutPreset"
     private static let shortcutConfigurationKey = "walkyTalky.shortcutConfiguration"
     private static let meetingAudioSourceKey = "walkyTalky.meetingAudioSource"
@@ -170,6 +176,9 @@ final class AppState: ObservableObject {
         self.intelligencePreset = UserDefaults.standard
             .string(forKey: Self.intelligencePresetKey)
             .flatMap(WalkyIntelligence.Preset.init(rawValue:)) ?? .paragraphs
+        self.transcriptStyle = UserDefaults.standard
+            .string(forKey: Self.transcriptStyleKey)
+            .flatMap(TranscriptCleanup.Style.init(rawValue:)) ?? .formal
         self.appearanceMode = UserDefaults.standard
             .string(forKey: Self.appearanceModeKey)
             .flatMap(AppearanceMode.init(rawValue:)) ?? .dark
@@ -468,7 +477,7 @@ final class AppState: ObservableObject {
                     let needsRetry = segment.polishedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                     if needsRetry, FileManager.default.fileExists(atPath: segment.audioChunkURL.path) {
                         let rawText = try await transcribeMeetingChunk(segment.audioChunkURL)
-                        let polishedText = cleanup.polish(rawText, dictionary: customDictionary)
+                        let polishedText = cleanup.polish(rawText, dictionary: customDictionary, style: transcriptStyle)
                         learnDictionary(from: rawText, polishedText: polishedText)
                         let repaired = MeetingSegment(
                             meetingID: segment.meetingID,
@@ -635,6 +644,11 @@ final class AppState: ObservableObject {
         shortcutPreset = .controlOption
         shortcutPresetDidChange?()
         statusDetail = "shortcuts reset."
+    }
+
+    func selectTranscriptStyle(_ style: TranscriptCleanup.Style) {
+        transcriptStyle = style
+        statusDetail = "transcript style set to \(style.rawValue)."
     }
 
     func selectMeetingAudioSource(_ source: MeetingAudioSource) {
@@ -997,7 +1011,7 @@ final class AppState: ObservableObject {
 
             do {
                 let rawText = try await transcribeMeetingChunk(chunkURL)
-                let polishedText = cleanup.polish(rawText, dictionary: customDictionary)
+                let polishedText = cleanup.polish(rawText, dictionary: customDictionary, style: transcriptStyle)
                 learnDictionary(from: rawText, polishedText: polishedText)
                 let segment = MeetingSegment(
                     meetingID: meetingID,
@@ -1116,7 +1130,7 @@ final class AppState: ObservableObject {
     private func transcribe(_ audioURL: URL) async {
         do {
             let rawText = try await transcriber.transcribe(audioURL)
-            let polishedText = cleanup.polish(rawText, dictionary: customDictionary)
+            let polishedText = cleanup.polish(rawText, dictionary: customDictionary, style: transcriptStyle)
             learnDictionary(from: rawText, polishedText: polishedText)
             let record = TranscriptRecord(
                 id: UUID(),
