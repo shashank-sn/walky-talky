@@ -7,8 +7,9 @@ auto-paste is a core product path. do not reduce it to a single global `cmd+v`.
 1. capture the frontmost non-walky app when dictation starts.
 2. copy the final transcript to the pasteboard.
 3. resolve the target by captured pid first, captured bundle id second.
-4. paste only through direct accessibility insertion into the focused ui element.
-5. update the visible status only after a verified direct insertion, or show a concrete copied-but-not-pasted detail.
+4. try direct accessibility insertion into the focused ui element.
+5. if direct insertion cannot be verified, use pasteboard plus global `cmd+v` against the reactivated target app.
+6. update the visible status with the method used. verified paths say pasted; best-effort keyboard paths say command-v was sent.
 
 ## covered failure modes
 
@@ -16,8 +17,8 @@ auto-paste is a core product path. do not reduce it to a single global `cmd+v`.
 - automation permission is missing or stale after reinstall: direct accessibility insertion does not depend on system events.
 - target pid is stale: fall back only to the captured bundle id.
 - target app cannot be resolved: leave transcript copied and report that the original target app was unavailable.
-- focused field does not accept accessibility value writes: status remains copied with failure detail instead of pretending paste worked.
-- keyboard-event paste paths are intentionally not used in production because smoke tests showed they can report success without changing the focused field.
+- focused field does not accept accessibility value writes: fall back to normal pasteboard command-v.
+- apps like safari, notes, whatsapp, and codex may not keep a stable readable focused ax value after target reactivation; for those, command-v is the production fallback.
 
 ## manual regression checklist
 
@@ -36,4 +37,5 @@ auto-paste is a core product path. do not reduce it to a single global `cmd+v`.
 - captured pid points to a focused editable cocoa text view: inserted through accessibility.
 - captured pid is stale but captured bundle id resolves to the same app: inserted through accessibility.
 - captured pid is stale and no bundle id is available: does not insert and reports unavailable.
-- system events and cg keyboard event routes were tested and removed from production because they returned success while the target text did not change.
+- direct accessibility insert works for normal cocoa text views.
+- command-v fallback is required for browser/electron/webview/native apps that do not accept direct ax value mutation reliably.
