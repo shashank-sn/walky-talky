@@ -6,21 +6,22 @@ DIST="${ROOT}/dist"
 APP_PATH="${DIST}/Walky Talky.app"
 DMG_PATH="${DIST}/Walky-Talky-mac.dmg"
 TMPDIR="$(mktemp -d)"
+BUILD_DIST="${TMPDIR}/build-dist"
 STAGING="${TMPDIR}/dmg-staging"
 RW_DMG="${TMPDIR}/Walky-Talky-rw.dmg"
 trap 'rm -rf "${TMPDIR}"' EXIT
 
 cd "${ROOT}"
-"${ROOT}/scripts/build-app-bundle.sh" >/dev/null
+mkdir -p "${DIST}"
+WALKY_DIST_ROOT="${BUILD_DIST}" "${ROOT}/scripts/build-app-bundle.sh" >/dev/null
+APP_PATH="${BUILD_DIST}/Walky Talky.app"
 
 rm -f "${DMG_PATH}"
 mkdir -p "${STAGING}"
 mkdir -p "${STAGING}/.background"
 "${ROOT}/scripts/generate-dmg-background.swift" "${STAGING}/.background/dmg-background.png"
-ditto --norsrc "${APP_PATH}" "${STAGING}/Walky Talky.app"
-xattr -cr "${STAGING}/Walky Talky.app" >/dev/null 2>&1 || true
-dot_clean -m "${STAGING}/Walky Talky.app" >/dev/null 2>&1 || true
-codesign --force --deep --sign - "${STAGING}/Walky Talky.app" >/dev/null
+COPYFILE_DISABLE=1 ditto --norsrc --noextattr "${APP_PATH}" "${STAGING}/Walky Talky.app"
+"${ROOT}/scripts/sign-app.sh" "${STAGING}/Walky Talky.app"
 ln -s /Applications "${STAGING}/Applications"
 
 hdiutil create \

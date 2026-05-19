@@ -2,6 +2,12 @@ import AppKit
 
 @MainActor
 enum AutoPasteSmokeTest {
+    static func accessibilityStatus() -> Int32 {
+        let trusted = AXIsProcessTrusted()
+        print("accessibility_trusted=\(trusted)")
+        return trusted ? 0 : 2
+    }
+
     static func run(arguments: [String]) async -> Int32 {
         let text = value(after: "--text", in: arguments) ?? "walky talky auto paste smoke test"
         let bundleID = value(after: "--bundle-id", in: arguments)

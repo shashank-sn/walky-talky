@@ -30,6 +30,15 @@ struct AutoPasteEngine {
             )
         }
 
+        guard AXIsProcessTrusted() else {
+            requestAccessibilityPrompt()
+            return AutoPasteOutcome(
+                pasted: false,
+                method: .unavailable,
+                detail: "accessibility permission is required for auto paste."
+            )
+        }
+
         let target = resolveTargetApplication(
             targetBundleID: targetBundleID,
             targetPID: targetPID,
@@ -252,6 +261,11 @@ struct AutoPasteEngine {
         usleep(8_000)
         keyUp.post(tap: .cgSessionEventTap)
         usleep(20_000)
+    }
+
+    private func requestAccessibilityPrompt() {
+        let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
+        AXIsProcessTrustedWithOptions(options)
     }
 
     private func postCommandVWithSystemEvents(processIdentifier: pid_t) -> Bool {

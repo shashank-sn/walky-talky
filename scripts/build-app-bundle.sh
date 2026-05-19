@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 APP_NAME="Walky Talky.app"
-APP_DIR="${ROOT}/dist/${APP_NAME}"
+DIST_ROOT="${WALKY_DIST_ROOT:-${HOME}/Library/Caches/WalkyTalkyBuild/dist}"
+APP_DIR="${DIST_ROOT}/${APP_NAME}"
 CONTENTS="${APP_DIR}/Contents"
 MACOS="${CONTENTS}/MacOS"
 RESOURCES="${CONTENTS}/Resources"
@@ -14,20 +16,19 @@ swift build -c release
 rm -rf "${APP_DIR}"
 mkdir -p "${MACOS}" "${RESOURCES}"
 
-cp ".build/release/WalkyTalky" "${MACOS}/WalkyTalky"
-cp "Resources/Info.plist" "${CONTENTS}/Info.plist"
+COPYFILE_DISABLE=1 cp -X ".build/release/WalkyTalky" "${MACOS}/WalkyTalky"
+COPYFILE_DISABLE=1 cp -X "Resources/Info.plist" "${CONTENTS}/Info.plist"
 if [[ -f "Resources/WalkyTalkyIcon.icns" ]]; then
-  cp "Resources/WalkyTalkyIcon.icns" "${RESOURCES}/WalkyTalkyIcon.icns"
+  COPYFILE_DISABLE=1 cp -X "Resources/WalkyTalkyIcon.icns" "${RESOURCES}/WalkyTalkyIcon.icns"
 fi
 for logo in WalkyTalkyLogoBlack.png WalkyTalkyLogoWhite.png WalkyTalkyLogoTemplate.png; do
   if [[ -f "Resources/${logo}" ]]; then
-    cp "Resources/${logo}" "${RESOURCES}/${logo}"
+    COPYFILE_DISABLE=1 cp -X "Resources/${logo}" "${RESOURCES}/${logo}"
   fi
 done
 
 chmod +x "${MACOS}/WalkyTalky"
 
-xattr -cr "${APP_DIR}" >/dev/null 2>&1 || true
-codesign --force --deep --sign - "${APP_DIR}" >/dev/null 2>&1 || true
+"${SCRIPT_DIR}/sign-app.sh" "${APP_DIR}"
 
 echo "${APP_DIR}"

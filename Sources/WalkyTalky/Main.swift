@@ -4,6 +4,10 @@ import AppKit
 enum WalkyTalkyMain {
     @MainActor
     static func main() {
+        if CommandLine.arguments.contains("--accessibility-status") {
+            exit(AutoPasteSmokeTest.accessibilityStatus())
+        }
+
         if CommandLine.arguments.contains("--autopaste-smoke-test") {
             let exitCode = runSmokeTest()
             exit(exitCode)
