@@ -1175,8 +1175,15 @@ final class AppState: ObservableObject {
         let targetPID = pasteTargetProcessIdentifier
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-            if let targetPID {
-                self.postPaste(to: targetPID)
+            if let targetPID, let targetApp = NSRunningApplication(processIdentifier: targetPID) {
+                let activated = targetApp.activate()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                    if activated {
+                        self.postPasteGlobally()
+                    } else {
+                        self.postPaste(to: targetPID)
+                    }
+                }
             } else {
                 if let targetBundleID,
                    let targetApp = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == targetBundleID }) {
