@@ -1203,19 +1203,47 @@ final class AppState: ObservableObject {
     }
 
     private func activateAndPaste(targetApp: NSRunningApplication, fallbackPID: pid_t?) {
-        let activated = targetApp.activate()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
-            if self.postPasteWithSystemEvents() {
+        let activated = targetApp.activate(options: [.activateAllWindows])
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+            if let fallbackPID, self.postPasteWithSystemEvents(to: fallbackPID) {
+                self.statusDetail = "local transcript pasted."
                 return
             }
-            if activated {
-                self.postPasteGlobally()
-            } else if let fallbackPID {
+            if self.postPasteWithSystemEvents() {
+                self.statusDetail = "local transcript pasted."
+                return
+            }
+            if let fallbackPID {
                 self.postPaste(to: fallbackPID)
+                self.statusDetail = "local transcript pasted."
+            } else if activated {
+                self.postPasteGlobally()
+                self.statusDetail = "local transcript pasted."
             } else {
                 self.postPasteGlobally()
+                self.statusDetail = "local transcript pasted."
             }
         }
+    }
+
+    @discardableResult
+    private func postPasteWithSystemEvents(to processIdentifier: pid_t) -> Bool {
+        let source = """
+        tell application "System Events"
+            set targetProcess to first application process whose unix id is \(processIdentifier)
+            set frontmost of targetProcess to true
+            delay 0.05
+            keystroke "v" using command down
+        end tell
+        """
+        var error: NSDictionary?
+        guard let script = NSAppleScript(source: source) else { return false }
+        script.executeAndReturnError(&error)
+        if error != nil {
+            statusDetail = "copied. auto-paste needs automation/accessibility permission."
+            return false
+        }
+        return true
     }
 
     @discardableResult
